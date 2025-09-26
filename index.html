@@ -98,7 +98,7 @@
                         </div>
                         <div id="help-container" class="help">
                             <div id="help-sidebar" class="help-sidebar"></div>
-                            <div id="help-page" class="help-page"></div>
+                            <div id="help-page"></div>
                         </div>
                     </div>
                 </div>
@@ -240,31 +240,34 @@
         // This runs after all IDE scripts are loaded. It attempts to call the *real*
         // function that puts the code into the editor.
         if (window.initialQBasicCode) {
-            console.log("Attempting to execute stored code...");
+            console.log("Code is captured. Scheduling delayed execution...");
             const codeToLoad = window.initialQBasicCode;
 
-            let codeExecuted = false;
+            // Introduce a short delay to guarantee the IDE and CodeMirror are fully ready.
+            setTimeout(() => {
+                let codeExecuted = false;
 
-            // Attempt 1: Call loadCode if it was correctly defined globally by the IDE
-            if (typeof window.loadCode === 'function' && window.loadCode.toString().indexOf('initialQBasicCode') === -1) {
-                // Check to make sure we are calling the REAL function, not our temporary hook.
-                window.loadCode(codeToLoad);
-                console.log("Code executed via global window.loadCode().");
-                codeExecuted = true;
-            } 
-            // Attempt 2: Call loadCode if it's attached to the IDE object
-            else if (typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
-                IDE.loadCode(codeToLoad);
-                console.log("Code executed via IDE.loadCode().");
-                codeExecuted = true;
-            }
+                // Attempt 1: Call the global loadCode (if it's the real one)
+                // We check the function's content to ensure it's not our temporary hook.
+                if (typeof window.loadCode === 'function' && window.loadCode.toString().indexOf('initialQBasicCode') === -1) {
+                    window.loadCode(codeToLoad);
+                    console.log("Code executed via global window.loadCode() after delay.");
+                    codeExecuted = true;
+                } 
+                // Attempt 2: Call loadCode via the IDE object
+                else if (typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
+                    IDE.loadCode(codeToLoad);
+                    console.log("Code executed via IDE.loadCode() after delay.");
+                    codeExecuted = true;
+                }
 
-            if (!codeExecuted) {
-                console.error("ERROR: Cannot find a valid loadCode function to execute the stored code.");
-            }
-            
-            // Clean up the temporary variable regardless
-            delete window.initialQBasicCode; 
+                if (!codeExecuted) {
+                    console.error("ERROR: Still cannot find a valid loadCode function to execute the stored code.");
+                }
+
+                // Clean up the temporary variable
+                delete window.initialQBasicCode; 
+            }, 100); // **100ms Delay Added**
         }
     </script>
     
