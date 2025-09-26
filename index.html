@@ -215,7 +215,7 @@
     </body>
     
     <script language="javascript">
-        // ⭐️ CRITICAL FIX: Define the missing asynchronous delay function
+        // ⭐️ CRITICAL FIX 1: Define the missing asynchronous delay function
         // This is required by qb.js (line 31) for handling silent pauses,
         // which was causing the "delay is not defined" error.
         const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -237,6 +237,17 @@
     <script language="javascript" src="vfs.js"></script>
     <script language="javascript" src="gx/gx.js"></script>
     <script language="javascript" src="qb.js"></script>
+    
+    <script language="javascript">
+        // ⭐️ CRITICAL FIX 2: Explicitly call QB.init()
+        // This is required to define the '_fontmap' object, preventing the crash
+        // when qbjs-ide.js attempts to initialize the IDE.
+        if (typeof QB !== 'undefined' && typeof QB.init === 'function') {
+            QB.init();
+            console.log("QB module explicitly initialized to define _fontmap.");
+        }
+    </script>
+    
     <script language="javascript" src="qb2js.js"></script>
     <script language="javascript" src="githelp.js"></script>
     <script language="javascript" src="qbjs-ide.js"></script>
