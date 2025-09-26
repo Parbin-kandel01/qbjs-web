@@ -216,12 +216,10 @@
     
     <script language="javascript">
         // 1. **STOP SERVICE WORKER:** Original 'serviceWorker' registration is removed.
-        // This prevents the caching errors often seen in mobile web views.
         console.log("Service Worker registration intentionally skipped for WebView.");
         
         // 2. **CREATE HOOK:** Define a temporary loadCode function.
-        // This allows your Flutter app to call loadCode() immediately, even if 
-        // the main IDE script hasn't finished loading and defined the real function yet.
+        // This runs immediately and captures the code when Flutter calls it.
         if (!window.loadCode) {
             window.loadCode = function(code) {
                 // Store the code globally.
@@ -239,15 +237,33 @@
     <script language="javascript" src="qbjs-ide.js"></script>
     
     <script language="javascript">
-        // 3. **EXECUTE STORED CODE:** This runs after qbjs-ide.js has loaded,
-        // and its real 'loadCode' function is now available on the IDE object.
-        if (window.initialQBasicCode && typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
-            console.log("Executing stored code...");
+        // This runs after all IDE scripts are loaded. It attempts to call the *real*
+        // function that puts the code into the editor.
+        if (window.initialQBasicCode) {
+            console.log("Attempting to execute stored code...");
+            const codeToLoad = window.initialQBasicCode;
+
+            let codeExecuted = false;
+
+            // Attempt 1: Call loadCode if it was correctly defined globally by the IDE
+            if (typeof window.loadCode === 'function' && window.loadCode.toString().indexOf('initialQBasicCode') === -1) {
+                // Check to make sure we are calling the REAL function, not our temporary hook.
+                window.loadCode(codeToLoad);
+                console.log("Code executed via global window.loadCode().");
+                codeExecuted = true;
+            } 
+            // Attempt 2: Call loadCode if it's attached to the IDE object
+            else if (typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
+                IDE.loadCode(codeToLoad);
+                console.log("Code executed via IDE.loadCode().");
+                codeExecuted = true;
+            }
+
+            if (!codeExecuted) {
+                console.error("ERROR: Cannot find a valid loadCode function to execute the stored code.");
+            }
             
-            // Call the real IDE.loadCode function with the stored code.
-            IDE.loadCode(window.initialQBasicCode);
-            
-            // Clean up the temporary variable
+            // Clean up the temporary variable regardless
             delete window.initialQBasicCode; 
         }
     </script>
