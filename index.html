@@ -213,15 +213,43 @@
             </div>
         </dialog>
     </body>
+    
     <script language="javascript">
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./service-worker.js', { scope: "." });
+        // 1. **STOP SERVICE WORKER:** Original 'serviceWorker' registration is removed.
+        // This prevents the caching errors often seen in mobile web views.
+        console.log("Service Worker registration intentionally skipped for WebView.");
+        
+        // 2. **CREATE HOOK:** Define a temporary loadCode function.
+        // This allows your Flutter app to call loadCode() immediately, even if 
+        // the main IDE script hasn't finished loading and defined the real function yet.
+        if (!window.loadCode) {
+            window.loadCode = function(code) {
+                // Store the code globally.
+                window.initialQBasicCode = code;
+                console.log("Code captured by temporary loadCode hook.");
+            };
         }
     </script>
+    
     <script language="javascript" src="vfs.js"></script>
     <script language="javascript" src="gx/gx.js"></script>
     <script language="javascript" src="qb.js"></script>
     <script language="javascript" src="qb2js.js"></script>
     <script language="javascript" src="githelp.js"></script>
     <script language="javascript" src="qbjs-ide.js"></script>
-</html>
+    
+    <script language="javascript">
+        // 3. **EXECUTE STORED CODE:** This runs after qbjs-ide.js has loaded,
+        // and its real 'loadCode' function is now available on the IDE object.
+        if (window.initialQBasicCode && typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
+            console.log("Executing stored code...");
+            
+            // Call the real IDE.loadCode function with the stored code.
+            IDE.loadCode(window.initialQBasicCode);
+            
+            // Clean up the temporary variable
+            delete window.initialQBasicCode; 
+        }
+    </script>
+    
+    </html>
