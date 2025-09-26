@@ -215,6 +215,11 @@
     </body>
     
     <script language="javascript">
+        // ⭐️ CRITICAL FIX: Define the missing asynchronous delay function
+        // This is required by qb.js (line 31) for handling silent pauses,
+        // which was causing the "delay is not defined" error.
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
         // 1. **STOP SERVICE WORKER:** Original 'serviceWorker' registration is removed.
         console.log("Service Worker registration intentionally skipped for WebView.");
         
@@ -267,8 +272,8 @@
 
                 // Clean up the temporary variable
                 delete window.initialQBasicCode; 
-            }, 500); // **100ms Delay Added**
+            }, 500); // **500ms Delay Added**
         }
     </script>
     
-    </html>
+</html>
