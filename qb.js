@@ -2046,18 +2046,13 @@ var QB = new function() {
             _inputCursor = !_inputCursor;
         }
     }
-
 this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
     _lastKey = null;
     var str = "";
     _inputMode = true;
 
-    // ✅ Safe check for numeric vs string variables
-    var isNumeric = false;
-    if (values && values.length > 0) {
-        var varName = String(values[0] || "");
-        isNumeric = !varName.endsWith("$");
-    }
+    // Determine if the QBasic variable is numeric (doesn't end with '$')
+    var isNumeric = (values.length > 0) && (values[0].endsWith("$") == false);
 
     // ⭐️ CRITICAL FIX FOR MOBILE VIRTUAL KEYBOARD AND TYPE ENFORCEMENT ⭐️
     var mobileInputFix = document.createElement("input");
@@ -2069,24 +2064,26 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
     mobileInputFix.setAttribute('autocorrect', 'off');
     mobileInputFix.setAttribute('autocapitalize', 'off');
     mobileInputFix.setAttribute('spellcheck', 'false');
-
+    
     // Set type based on expected QBasic variable type
     if (isNumeric) {
-        // 'tel' gives numeric keyboard on mobile
+        // 'tel' provides a numeric keyboard on mobile without the messy arrows
         mobileInputFix.setAttribute('type', 'tel'); 
     } else {
         mobileInputFix.setAttribute('type', 'text');
     }
 
     document.body.appendChild(mobileInputFix);
+    // Use preventScroll and capture focus
     mobileInputFix.focus({preventScroll: true}); 
+    // ----------------------------------------------------
 
     _flushScreenCache(_images[_activeImage]);
 
-    if (prompt !== undefined) {
+    if (prompt != undefined) {
         await QB.sub_Print([prompt, QB.PREVENT_NEWLINE]);
     }
-    if (prompt === undefined || addQuestionPrompt) {
+    if (prompt == undefined || addQuestionPrompt) {
         await QB.sub_Print(["? ", QB.PREVENT_NEWLINE]);
     }
 
@@ -2107,16 +2104,21 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
     copyCtx.drawImage(_images[_activeImage].canvas, 0, 0);
 
     var beginTextX = _lastTextX;
-
-    // ⭐️ INPUT LOOP: Reads value from the hidden HTML input field
+    
+    // ⭐️ CORRECTED INPUT LOOP: Reads value from the HTML input field ⭐️
     while (_lastKey != "Enter" && _inputMode) {
+
+        // Read the current string value from the focused HTML input field
         var newStr = mobileInputFix.value; 
 
-        if (newStr !== str) {
+        if (newStr != str) {
+            
             var validUpdate = true;
-
-            // ⭐️ NUMERIC FILTERING ⭐️
+            
+            // ⭐️ NUMERIC FILTERING LOGIC ⭐️
             if (isNumeric) {
+                // If the new string is not empty, not just a minus sign, and fails 
+                // JavaScript's Number() conversion, it's invalid input.
                 if (newStr !== "" && newStr !== "-" && isNaN(Number(newStr))) {
                     validUpdate = false;
                 }
@@ -2124,9 +2126,9 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
 
             if (validUpdate) {
                 toggleCursor(true);
-                str = newStr;
-
-                // Redraw text on canvas
+                str = newStr; // Update the QB runtime's string
+                
+                // Redraw the canvas content to show the characters
                 var tm = ctx.measureText(str);
                 _lastTextX = beginTextX + tm.width;
                 _locX = Math.round(_lastTextX / QB.func__FontWidth());
@@ -2135,43 +2137,52 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
                 ctx.drawImage(copy, 0, 0);
                 QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
             } else {
-                // Revert invalid input
+                // If the update was invalid (e.g., non-numeric character typed),
+                // revert the HTML input field to the last known valid string.
                 mobileInputFix.value = str;
             }
         }
 
+        // Only clear _lastKey so we still capture "Enter" to exit the loop
         _lastKey = null; 
         await GX.sleep(5);
     }
-
+    // ----------------------------------------------------
+    
     if (!_inputMode) { return; }
 
     _inputMode = false; 
     toggleCursor(true);
 
-    // CLEANUP: Remove the hidden input
+    // CLEANUP: Remove the temporary input field
     if (mobileInputFix) {
         mobileInputFix.remove();
     }
+    // ----------------------------------------------------
 
-    // Final numeric check
+    // Final checks before returning the value
+    
+    // Final filtering: If numeric input is required but the final string is invalid, reset it to empty
+    // This handles cases like pressing ENTER after just typing "..."
     if (isNumeric && str !== "" && isNaN(Number(str))) {
         str = "";
     }
-
+    
     if (!preventNewline) {
         _locX = 0;
         _lastTextX = 0;
         if (_locY < _textRows()-1) {
             _locY = _locY + 1;
-        } else {
+        }
+        else {
             await _printScroll();
         }
     }
 
     if (values.length < 2) {
         values[0] = str;
-    } else {
+    }
+    else {
         var vparts = str.split(",");
         for (var i=0; i < values.length; i++) {
             values[i] = vparts[i] ? vparts[i] : "";
