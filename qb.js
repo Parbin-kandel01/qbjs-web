@@ -2164,7 +2164,7 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
     var str = "";
     _inputMode = true;
 
-    // Check if the variable expecting input is numeric (typically not ending in $)
+    // Check if the variable expecting input is numeric (does not end in $)
     var isNumeric = (values.length > 0) && (values[0].endsWith("$") == false);
     
     // ⭐️ CRITICAL FIX FOR MOBILE VIRTUAL KEYBOARD AND TYPE ENFORCEMENT ⭐️
@@ -2187,6 +2187,7 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
     }
 
     document.body.appendChild(mobileInputFix);
+    // Use preventScroll and capture focus
     mobileInputFix.focus({preventScroll: true}); 
     // ----------------------------------------------------
 
@@ -2224,49 +2225,34 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
         var newStr = mobileInputFix.value; 
 
         if (newStr != str) {
-            // ... (Redrawing logic remains the same)
-            toggleCursor(true);
             
-            // ⭐️ Numeric Input Filtering ⭐️
+            var validUpdate = true;
+            // ⭐️ SIMPLIFIED NUMERIC FILTERING: Only accept if the string is a number ⭐️
             if (isNumeric) {
-                // Remove non-numeric characters (except - and .) 
-                // and ensure only one decimal point/leading sign
-                let filteredStr = newStr.replace(/[^\d.-]/g, '');
-                
-                // Redraw based on filtered string, but keep the original logic simple 
-                // by trusting the 'tel' keyboard for basic numbers.
-                // We rely on the QB runtime to handle final type conversion.
-
-                // If the user typed invalid characters on a desktop keyboard,
-                // we should stick to the last valid string.
-                // For simplicity and mobile-focus, we rely on the 'tel' type.
-                
-                // To prevent non-numeric characters from appearing on the canvas:
-                // If a new character was added, check if it's a valid part of a number.
-                if (newStr.length > str.length) {
-                    let lastChar = newStr[newStr.length - 1];
-                    let isValid = (lastChar >= '0' && lastChar <= '9') || 
-                                   (lastChar === '.' && str.indexOf('.') === -1) || 
-                                   (lastChar === '-' && str.length === 0);
-
-                    if (!isValid) {
-                        // Reject invalid character by resetting input value
-                        mobileInputFix.value = str;
-                        newStr = str;
-                    }
+                // If it's numeric, ensure the new string can be parsed as a number
+                // (or is empty/just a minus sign, which are valid starts)
+                if (newStr !== "" && newStr !== "-" && isNaN(Number(newStr))) {
+                    validUpdate = false;
                 }
             }
-            
-            str = newStr; // Update the QB runtime's string
-            
-            // Redraw the canvas content to show the characters
-            var tm = ctx.measureText(str);
-            _lastTextX = beginTextX + tm.width;
-            _locX = Math.round(_lastTextX / QB.func__FontWidth());
 
-            ctx.clearRect(0, 0, copy.width, copy.height);
-            ctx.drawImage(copy, 0, 0);
-            QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
+            if (validUpdate) {
+                toggleCursor(true);
+                str = newStr; // Update the QB runtime's string
+                
+                // Redraw the canvas content to show the characters
+                var tm = ctx.measureText(str);
+                _lastTextX = beginTextX + tm.width;
+                _locX = Math.round(_lastTextX / QB.func__FontWidth());
+
+                ctx.clearRect(0, 0, copy.width, copy.height);
+                ctx.drawImage(copy, 0, 0);
+                QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
+            } else {
+                // If the update was invalid (e.g., trying to type 'A' into a numeric field),
+                // revert the HTML input field to the last known valid string.
+                mobileInputFix.value = str;
+            }
         }
 
         _lastKey = null; 
@@ -2284,7 +2270,6 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
     }
     // ----------------------------------------------------
 
-    // ... (Rest of the function is unchanged)
     if (!preventNewline) {
         _locX = 0;
         _lastTextX = 0;
@@ -2294,6 +2279,11 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
         else {
             await _printScroll();
         }
+    }
+
+    // Final check for numeric input: if numeric, clear str if it's invalid
+    if (isNumeric && str !== "" && isNaN(Number(str))) {
+        str = ""; // If the user presses ENTER on an invalid number, return nothing.
     }
 
     if (values.length < 2) {
@@ -2306,7 +2296,6 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
         }
     }
 }
-// ... (rest of qb.js)
 
     this.func_InKey = function() {
         if (_inkeyBuffer.length < 1) {
