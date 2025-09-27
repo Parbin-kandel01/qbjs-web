@@ -156,6 +156,34 @@ var IDE = new function() {
             GitHelp.navhome();
         }
 
+        // ⭐ Add this function to your IDE JS file (main.js / editor.js)
+
+// This function will be called from Flutter
+function loadCodeAndFocus(code) {
+    try {
+        if (typeof editor !== 'undefined' && editor) {
+            editor.setValue(code);    // Set the code in the editor
+            editor.focus();           // Focus editor to open keyboard
+            console.log('Code loaded and editor focused!');
+        } else {
+            console.warn('Editor not ready yet, retrying...');
+            // Retry after 200ms if editor is not ready
+            setTimeout(() => loadCodeAndFocus(code), 200);
+        }
+    } catch (err) {
+        console.error('Error in loadCodeAndFocus:', err);
+    }
+}
+
+// Optional: Signal Flutter when IDE is fully ready
+window.addEventListener('DOMContentLoaded', (event) => {
+    if (window.flutter_inappwebview) {
+        window.flutter_inappwebview.callHandler('ideReady');
+    }
+    console.log('IDE is ready for Flutter injection.');
+});
+
+
         // initialize the code editor
         editor = CodeMirror(document.querySelector("#code"), {
             lineNumbers: true,
