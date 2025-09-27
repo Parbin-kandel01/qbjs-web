@@ -197,8 +197,8 @@ var QB = new function() {
     var _inkeyBuffer = [];
     var _inkeymap = {};
     var _inkeynp = {};
-    var _inputMode = false;
-    var _inputCursor = false;
+    var _inputMode = true;
+    var _inputCursor = true;
     var _inputTimeout = false;
     var _keyDownMap = {};
     var _keyHitBuffer = [];
@@ -4606,96 +4606,3 @@ var QB = new function() {
 
     _init();
 }
-
-if (isMobileDevice()) {
-    let hiddenInput = document.createElement('input');
-    hiddenInput.type = 'text';
-    hiddenInput.style.position = 'absolute';
-    hiddenInput.style.left = '-9999px'; // Off-screen
-    hiddenInput.style.opacity = '0'; // Hidden but focusable
-    hiddenInput.style.width = '1px'; // Minimize size
-    hiddenInput.style.height = '1px';
-    hiddenInput.autocapitalize = 'off'; // Disable auto-capitalize for QBASIC-like behavior
-    hiddenInput.autocorrect = 'off'; // Disable auto-correct
-    document.body.appendChild(hiddenInput);
-    hiddenInput.focus(); // Triggers virtual keyboard
-
-    let currentInput = ''; // Track entered text
-    let startLocX = _locX; // Save starting cursor position for backspace
-
-    // Handle text changes (including paste, backspace)
-    hiddenInput.addEventListener('input', (e) => {
-        let newValue = e.target.value;
-        if (newValue.length < currentInput.length) {
-            // Backspace detected: Remove last char from screen
-            if (_locX > startLocX) {
-                _locX--;
-                _setScreenText(' '); // Clear the cell
-                // Optional: Flush and redraw the screen
-                _flushScreenCache(_images[_activeImage]);
-            }
-        } else {
-            // New char added: Get the last char and render it
-            let char = newValue.slice(-1);
-            _setScreenText(char); // Add to _screenText
-            _locX++; // Advance cursor
-            // Redraw the line (use _sub_PrintString or full refresh if needed)
-            _flushScreenCache(_images[_activeImage]);
-
-            // Dispatch custom keydown event to window for original handling
-            const keyEvent = new KeyboardEvent('keydown', {
-                key: char,
-                code: char.charCodeAt(0) > 32 ? `Key${char.toUpperCase()}` : 'Space', // Approximate code
-                shiftKey: char === char.toUpperCase() && /[A-Z]/.test(char), // Detect shift
-                bubbles: true
-            });
-            window.dispatchEvent(keyEvent); // Triggers _addInkeyPress
-        }
-        currentInput = newValue;
-    });
-
-    // Handle Enter to submit input
-    hiddenInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            // Process the full input (e.g., assign to variable in sub_Input)
-            // For example: let inputValue = currentInput; // Use this as the INPUT result
-            _inputMode = false; // Exit input mode
-            document.body.removeChild(hiddenInput); // Clean up
-            // Optional: Hide keyboard if using VirtualKeyboard API
-            if ('virtualKeyboard' in navigator) {
-                navigator.virtualKeyboard.hide();
-            }
-            // Advance to next line if needed
-            _locY++;
-            _locX = 0;
-        }
-    });
-
-    // Prevent blur (keyboard hide) on touch outside; refocus if needed
-    hiddenInput.addEventListener('blur', () => {
-        setTimeout(() => hiddenInput.focus(), 0);
-    });
-} else {
-    // Existing physical keyboard logic (window events)
-}
-
-if ('virtualKeyboard' in navigator) {
-    navigator.virtualKeyboard.overlaysContent = true; // Keyboard overlays canvas without resize
-    navigator.virtualKeyboard.addEventListener('geometrychange', (event) => {
-        const { height } = event.target.boundingRect;
-        // Adjust canvas height or padding to avoid overlap, e.g.:
-        _images[0].canvas.style.paddingBottom = `${height}px`;
-        // Or resize canvas: QB.resize(window.innerWidth, window.innerHeight - height);
-    });
-}
-
-window.addEventListener('resize', () => {
-    if (isMobileDevice() && _inputMode) {
-        // Recalculate canvas size or flush cache
-        _flushAllScreenCache();
-        // Optional: Use Visual Viewport API for precise height
-        const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-        QB.resize(window.innerWidth, viewportHeight);
-    }
-});
