@@ -197,8 +197,8 @@ var QB = new function() {
     var _inkeyBuffer = [];
     var _inkeymap = {};
     var _inkeynp = {};
-    var _inputMode = true;
-    var _inputCursor = true;
+    var _inputMode = false;
+    var _inputCursor = false;
     var _inputTimeout = false;
     var _keyDownMap = {};
     var _keyHitBuffer = [];
@@ -233,6 +233,66 @@ var QB = new function() {
     var _ccharMap = {};
     var _player = null;
     var _soundCtx = null;
+    // --- Mobile Input Patch: Auxiliary Hidden Text Area and Functions ---
+    var _tempInput = null;
+    var _inputBuffer = ""; 
+    var _inputCursorPos = 0; // Tracks the cursor position within the input text
+
+    function _setupMobileInput() {
+        // Create an off-screen, invisible textarea element
+        _tempInput = document.createElement('textarea');
+        _tempInput.style.position = 'fixed';
+        _tempInput.style.top = '-100px'; // Move it far off-screen to hide it
+        _tempInput.style.opacity = 0;
+        _tempInput.style.pointerEvents = 'none'; // Initially disabled
+        _tempInput.setAttribute('autocorrect', 'off');
+        _tempInput.setAttribute('autocapitalize', 'none');
+        _tempInput.setAttribute('spellcheck', 'false');
+        document.body.appendChild(_tempInput);
+
+        // Listener to capture typed characters when the field is focused
+        _tempInput.addEventListener('input', function(event) {
+            // The value of the textarea is the current input
+            _inputBuffer = _tempInput.value;
+            _inputCursorPos = _tempInput.selectionStart;
+            // NOTE: You must update your console screen drawing logic 
+            // to display the text from _inputBuffer when _inputMode is true.
+        });
+        
+        _tempInput.addEventListener('focusout', function(event) {
+            // Re-focus immediately if in input mode to prevent keyboard from closing unexpectedly
+            if (_inputMode) {
+                setTimeout(function() {
+                    _tempInput.focus();
+                }, 100);
+            }
+        });
+        
+        // Expose functions to the main application logic
+        QB.startInput = function() {
+            _inputMode = true;
+            _inputBuffer = "";
+            _inputCursorPos = 0;
+            _tempInput.value = "";
+            _tempInput.style.pointerEvents = 'auto';
+            
+            // Force focus to bring up the mobile keyboard
+            setTimeout(function() {
+                _tempInput.focus();
+                // On some mobile browsers, selecting all text prevents the keyboard from hiding prematurely.
+                _tempInput.select(); 
+                _tempInput.setSelectionRange(0, 0); // Deselect everything
+            }, 50); 
+        };
+
+        QB.finishInput = function() {
+            _inputMode = false;
+            _tempInput.blur(); // Hide the mobile keyboard
+            _tempInput.style.pointerEvents = 'none';
+            return _inputBuffer; // Return the final string
+        };
+    }
+    // -------------------------------------------------------------------
     
     // Array handling methods
     // ----------------------------------------------------
@@ -4563,67 +4623,6 @@ var QB = new function() {
     this.convertTo437 = function(str) {
         return _convertCharMap(str, _ccharMap);
     };
-
-    // --- Mobile Input Patch: Auxiliary Hidden Text Area and Functions ---
-    var _tempInput = null;
-    var _inputBuffer = ""; 
-    var _inputCursorPos = 0; // Tracks the cursor position within the input text
-
-    function _setupMobileInput() {
-        // Create an off-screen, invisible textarea element
-        _tempInput = document.createElement('textarea');
-        _tempInput.style.position = 'fixed';
-        _tempInput.style.top = '-100px'; // Move it far off-screen to hide it
-        _tempInput.style.opacity = 0;
-        _tempInput.style.pointerEvents = 'none'; // Initially disabled
-        _tempInput.setAttribute('autocorrect', 'off');
-        _tempInput.setAttribute('autocapitalize', 'none');
-        _tempInput.setAttribute('spellcheck', 'false');
-        document.body.appendChild(_tempInput);
-
-        // Listener to capture typed characters when the field is focused
-        _tempInput.addEventListener('input', function(event) {
-            // The value of the textarea is the current input
-            _inputBuffer = _tempInput.value;
-            _inputCursorPos = _tempInput.selectionStart;
-            // NOTE: You must update your console screen drawing logic 
-            // to display the text from _inputBuffer when _inputMode is true.
-        });
-        
-        _tempInput.addEventListener('focusout', function(event) {
-            // Re-focus immediately if in input mode to prevent keyboard from closing unexpectedly
-            if (_inputMode) {
-                setTimeout(function() {
-                    _tempInput.focus();
-                }, 100);
-            }
-        });
-        
-        // Expose functions to the main application logic
-        QB.startInput = function() {
-            _inputMode = true;
-            _inputBuffer = "";
-            _inputCursorPos = 0;
-            _tempInput.value = "";
-            _tempInput.style.pointerEvents = 'auto';
-            
-            // Force focus to bring up the mobile keyboard
-            setTimeout(function() {
-                _tempInput.focus();
-                // On some mobile browsers, selecting all text prevents the keyboard from hiding prematurely.
-                _tempInput.select(); 
-                _tempInput.setSelectionRange(0, 0); // Deselect everything
-            }, 50); 
-        };
-
-        QB.finishInput = function() {
-            _inputMode = false;
-            _tempInput.blur(); // Hide the mobile keyboard
-            _tempInput.style.pointerEvents = 'none';
-            return _inputBuffer; // Return the final string
-        };
-    }
-    // -------------------------------------------------------------------
 
    function _init() {
         _initColorTable();
