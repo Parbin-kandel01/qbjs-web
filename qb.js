@@ -2047,111 +2047,117 @@ var QB = new function() {
         }
     }
 
-   this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
-        _lastKey = null;
-        var str = "";
-        _inputMode = true;
+ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
+    _lastKey = null;
+    var str = "";
+    _inputMode = true;
 
-        // ⭐️ CRITICAL FIX FOR MOBILE VIRTUAL KEYBOARD ⭐️
-        // Create a temporary, invisible input field and focus it to force
-        // the mobile browser to show the keyboard.
-        var mobileInputFix = document.createElement("input");
-        mobileInputFix.id = "mobile-input-fix";
-        mobileInputFix.style.position = "absolute";
-        mobileInputFix.style.top = "-100px";
-        mobileInputFix.style.opacity = "0"; // Invisible
-        mobileInputFix.setAttribute('tabindex', '0');
-        document.body.appendChild(mobileInputFix);
-        mobileInputFix.focus(); 
-        // ----------------------------------------------------
+    // ⭐️ CRITICAL FIX FOR MOBILE VIRTUAL KEYBOARD ⭐️
+    // Create a temporary, invisible input field and focus it to force
+    // the mobile browser to show the keyboard.
+    var mobileInputFix = document.createElement("input");
+    mobileInputFix.id = "mobile-input-fix";
+    mobileInputFix.style.position = "absolute";
+    mobileInputFix.style.top = "-100px";
+    mobileInputFix.style.opacity = "0"; // Invisible
+    mobileInputFix.setAttribute('tabindex', '0');
+    mobileInputFix.setAttribute('autocorrect', 'off');
+    mobileInputFix.setAttribute('autocapitalize', 'off');
+    mobileInputFix.setAttribute('spellcheck', 'false');
+    document.body.appendChild(mobileInputFix);
+    // Use preventScroll to avoid viewport jumps
+    mobileInputFix.focus({preventScroll: true}); 
+    // ----------------------------------------------------
 
-        _flushScreenCache(_images[_activeImage]);
+    _flushScreenCache(_images[_activeImage]);
 
-        if (prompt != undefined) {
-            await QB.sub_Print([prompt, QB.PREVENT_NEWLINE]);
-        }
-        if (prompt == undefined || addQuestionPrompt) {
-            await QB.sub_Print(["? ", QB.PREVENT_NEWLINE]);
-        }
+    if (prompt != undefined) {
+        await QB.sub_Print([prompt, QB.PREVENT_NEWLINE]);
+    }
+    if (prompt == undefined || addQuestionPrompt) {
+        await QB.sub_Print(["? ", QB.PREVENT_NEWLINE]);
+    }
 
-        if (!preventNewline && _locY > _textRows()-1) {
-            await _printScroll();
-            _locY = _textRows()-1;
-        }
+    if (!preventNewline && _locY > _textRows()-1) {
+        await _printScroll();
+        _locY = _textRows()-1;
+    }
 
-        if (!_inputTimeout) {
-            setTimeout(blinkCursor, 400);
-        }
+    if (!_inputTimeout) {
+        setTimeout(blinkCursor, 400);
+    }
 
-        var ctx = _images[_activeImage].ctx;
-        var copy = document.createElement("canvas");
-        copy.width = _images[_activeImage].canvas.width;
-        copy.height = _images[_activeImage].canvas.height;
-        var copyCtx = copy.getContext("2d");
-        copyCtx.drawImage(_images[_activeImage].canvas, 0, 0);
+    var ctx = _images[_activeImage].ctx;
+    var copy = document.createElement("canvas");
+    copy.width = _images[_activeImage].canvas.width;
+    copy.height = _images[_activeImage].canvas.height;
+    var copyCtx = copy.getContext("2d");
+    copyCtx.drawImage(_images[_activeImage].canvas, 0, 0);
 
-        var beginTextX = _lastTextX;
-        while (_lastKey != "Enter" && _inputMode) {
+    var beginTextX = _lastTextX;
+    
+    // ⭐️ CORRECTED INPUT LOOP: Reads value from the HTML input field ⭐️
+    // This correctly captures input (including backspace) from the mobile keyboard.
+    while (_lastKey != "Enter" && _inputMode) {
 
-            if (_lastKey == "Backspace" && str.length > 0) {
-                toggleCursor(true);
-                _locX--;
-                
-                var tm = ctx.measureText(str);
-                str = str.substring(0, str.length-1);
-                var tm = ctx.measureText(str);
-                _lastTextX = beginTextX + tm.width;
-                ctx.clearRect(0, 0, copy.width, copy.height);
-                ctx.drawImage(copy, 0, 0);
-                QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
-            }
+        // Read the current string value from the focused HTML input field
+        var newStr = mobileInputFix.value; 
 
-            else if (_lastKey && _lastKey.length < 2) {
-                toggleCursor(true);
-                str += _lastKey;
-                var tm = ctx.measureText(str);
-                ctx.clearRect(0, 0, copy.width, copy.height);
-                ctx.drawImage(copy, 0, 0);
-                QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
-                _locX++;
-                _lastTextX = beginTextX + tm.width;
-            }
+        if (newStr != str) {
+            // The input string has changed (new character or backspace)
+            toggleCursor(true);
+            
+            str = newStr; // Update the QB runtime's string
+            
+            // Redraw the canvas content to show the characters
+            var tm = ctx.measureText(str);
+            _lastTextX = beginTextX + tm.width;
+            _locX = Math.round(_lastTextX / QB.func__FontWidth());
 
-            _lastKey = null;
-            await GX.sleep(5);
-        }
-        if (!_inputMode) { return; }
+            ctx.clearRect(0, 0, copy.width, copy.height);
+            ctx.drawImage(copy, 0, 0);
+            QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
+        }
 
-        _inputMode = true;
-        toggleCursor(true);
+        // Only clear _lastKey so we still capture "Enter" to exit the loop
+        _lastKey = null; 
+        await GX.sleep(5);
+    }
+    // ----------------------------------------------------
+    
+    if (!_inputMode) { return; }
 
-        // CLEANUP: Remove the temporary input field
-        if (mobileInputFix) {
-            mobileInputFix.remove();
-        }
-        // ----------------------------------------------------
+    // Fix: Set _inputMode to false when exiting
+    _inputMode = false; 
+    toggleCursor(true);
 
-        if (!preventNewline) {
-            _locX = 0;
-            _lastTextX = 0;
-            if (_locY < _textRows()-1) {
-                _locY = _locY + 1;
-            }
-            else {
-                await _printScroll();
-            }
-        }
+    // CLEANUP: Remove the temporary input field
+    if (mobileInputFix) {
+        mobileInputFix.remove();
+    }
+    // ----------------------------------------------------
 
-        if (values.length < 2) {
-            values[0] = str;
-        }
-        else {
-            var vparts = str.split(",");
-            for (var i=0; i < values.length; i++) {
-                values[i] = vparts[i] ? vparts[i] : "";
-            }
-        }
-    }
+    if (!preventNewline) {
+        _locX = 0;
+        _lastTextX = 0;
+        if (_locY < _textRows()-1) {
+            _locY = _locY + 1;
+        }
+        else {
+            await _printScroll();
+        }
+    }
+
+    if (values.length < 2) {
+        values[0] = str;
+    }
+    else {
+        var vparts = str.split(",");
+        for (var i=0; i < values.length; i++) {
+            values[i] = vparts[i] ? vparts[i] : "";
+        }
+    }
+}
 
     this.sub_InputFromFile = async function(fh, returnValues) {
         if (!_fileHandles[fh]) {
