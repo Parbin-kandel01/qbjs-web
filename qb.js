@@ -197,8 +197,8 @@ var QB = new function() {
     var _inkeyBuffer = [];
     var _inkeymap = {};
     var _inkeynp = {};
-    var _inputMode = true;
-    var _inputCursor = true;
+    var _inputMode = false;
+    var _inputCursor = false;
     var _inputTimeout = false;
     var _keyDownMap = {};
     var _keyHitBuffer = [];
@@ -2047,293 +2047,200 @@ var QB = new function() {
         }
     }
 
-this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
-    _lastKey = null;
-    var str = "";
-    _inputMode = true;
-
-    // 🔹 Create hidden input for mobile typing
-    var mobileInput = document.createElement("input");
-    mobileInput.type = "text";
-    mobileInput.id = "qb-mobile-input";
-    mobileInput.style.position = "absolute";
-    mobileInput.style.top = "-100px"; // off-screen
-    mobileInput.style.opacity = "0";
-    mobileInput.autocapitalize = "off";
-    mobileInput.autocorrect = "off";
-    mobileInput.spellcheck = false;
-    document.body.appendChild(mobileInput);
-    mobileInput.focus({ preventScroll: true });
-
-    // ... same drawing setup as before ...
-
-    var ctx = _images[_activeImage].ctx;
-    var copy = document.createElement("canvas");
-    copy.width = _images[_activeImage].canvas.width;
-    copy.height = _images[_activeImage].canvas.height;
-    var copyCtx = copy.getContext("2d");
-    copyCtx.drawImage(_images[_activeImage].canvas, 0, 0);
-
-    var beginTextX = _lastTextX;
-
-    // 🔹 Input loop
-    while (_inputMode) {
-        var newStr = mobileInput.value;
-        if (newStr !== str) {
-            str = newStr;
-            toggleCursor(true);
-
-            var tm = ctx.measureText(str);
-            _lastTextX = beginTextX + tm.width;
-            ctx.clearRect(0, 0, copy.width, copy.height);
-            ctx.drawImage(copy, 0, 0);
-            QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
-        }
-
-        if (_lastKey === "Enter") break;
+    this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
         _lastKey = null;
-        await GX.sleep(10);
-    }
+        var str = "";
+        _inputMode = true;
 
-    // cleanup
-    _inputMode = false;
-    toggleCursor(true);
-    mobileInput.remove();
+        _flushScreenCache(_images[_activeImage]);
 
-    // save result
-    if (values.length < 2) {
-        values[0] = str;
-    } else {
-        var vparts = str.split(",");
-        for (var i=0; i < values.length; i++) {
-            values[i] = vparts[i] ? vparts[i] : "";
+        if (prompt != undefined) {
+            await QB.sub_Print([prompt, QB.PREVENT_NEWLINE]);
         }
-    }
-}
+        if (prompt == undefined || addQuestionPrompt) {
+            await QB.sub_Print(["? ", QB.PREVENT_NEWLINE]);
+        }
 
+        if (!preventNewline && _locY > _textRows()-1) {
+            await _printScroll();
+            _locY = _textRows()-1;
+        }
 
+        if (!_inputTimeout) {
+            setTimeout(blinkCursor, 400);
+        }
 
-this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
-    _lastKey = null;
-    var str = "";
-    _inputMode = true;
+        var ctx = _images[_activeImage].ctx;
+        var copy = document.createElement("canvas");
+        copy.width = _images[_activeImage].canvas.width;
+        copy.height = _images[_activeImage].canvas.height;
+        var copyCtx = copy.getContext("2d");
+        copyCtx.drawImage(_images[_activeImage].canvas, 0, 0);
 
-    // Check if the variable expecting input is numeric (does not end in $)
-    var isNumeric = (values.length > 0) && (values[0].endsWith("$") == false);
-    
-    // ⭐️ CRITICAL FIX FOR MOBILE VIRTUAL KEYBOARD AND TYPE ENFORCEMENT ⭐️
-    var mobileInputFix = document.createElement("input");
-    mobileInputFix.id = "mobile-input-fix";
-    mobileInputFix.style.position = "absolute";
-    mobileInputFix.style.top = "-100px";
-    mobileInputFix.style.opacity = "0"; // Invisible
-    mobileInputFix.setAttribute('tabindex', '0');
-    mobileInputFix.setAttribute('autocorrect', 'off');
-    mobileInputFix.setAttribute('autocapitalize', 'off');
-    mobileInputFix.setAttribute('spellcheck', 'false');
-    
-    // Set type based on expected QBasic variable type
-    if (isNumeric) {
-        // Use 'tel' for iOS/Android numeric keyboard without spinner controls
-        mobileInputFix.setAttribute('type', 'tel'); 
-    } else {
-        mobileInputFix.setAttribute('type', 'text');
-    }
+        var beginTextX = _lastTextX;
+        while (_lastKey != "Enter" && _inputMode) {
 
-    document.body.appendChild(mobileInputFix);
-    // Use preventScroll and capture focus
-    mobileInputFix.focus({preventScroll: true}); 
-    // ----------------------------------------------------
-
-    _flushScreenCache(_images[_activeImage]);
-
-    if (prompt != undefined) {
-        await QB.sub_Print([prompt, QB.PREVENT_NEWLINE]);
-    }
-    if (prompt == undefined || addQuestionPrompt) {
-        await QB.sub_Print(["? ", QB.PREVENT_NEWLINE]);
-    }
-
-    if (!preventNewline && _locY > _textRows()-1) {
-        await _printScroll();
-        _locY = _textRows()-1;
-    }
-
-    if (!_inputTimeout) {
-        setTimeout(blinkCursor, 400);
-    }
-
-    var ctx = _images[_activeImage].ctx;
-    var copy = document.createElement("canvas");
-    copy.width = _images[_activeImage].canvas.width;
-    copy.height = _images[_activeImage].canvas.height;
-    var copyCtx = copy.getContext("2d");
-    copyCtx.drawImage(_images[_activeImage].canvas, 0, 0);
-
-    var beginTextX = _lastTextX;
-    
-    // CORRECTED INPUT LOOP: Reads value from the HTML input field 
-    while (_lastKey != "Enter" && _inputMode) {
-
-        // Read the current string value from the focused HTML input field
-        var newStr = mobileInputFix.value; 
-
-        if (newStr != str) {
-            
-            var validUpdate = true;
-            // ⭐️ SIMPLIFIED NUMERIC FILTERING: Only accept if the string is a number ⭐️
-            if (isNumeric) {
-                // If it's numeric, ensure the new string can be parsed as a number
-                // (or is empty/just a minus sign, which are valid starts)
-                if (newStr !== "" && newStr !== "-" && isNaN(Number(newStr))) {
-                    validUpdate = false;
-                }
-            }
-
-            if (validUpdate) {
+            if (_lastKey == "Backspace" && str.length > 0) {
                 toggleCursor(true);
-                str = newStr; // Update the QB runtime's string
+                _locX--;
                 
-                // Redraw the canvas content to show the characters
+                var tm = ctx.measureText(str);
+                str = str.substring(0, str.length-1);
                 var tm = ctx.measureText(str);
                 _lastTextX = beginTextX + tm.width;
-                _locX = Math.round(_lastTextX / QB.func__FontWidth());
-
                 ctx.clearRect(0, 0, copy.width, copy.height);
                 ctx.drawImage(copy, 0, 0);
                 QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
-            } else {
-                // If the update was invalid (e.g., trying to type 'A' into a numeric field),
-                // revert the HTML input field to the last known valid string.
-                mobileInputFix.value = str;
+            }
+
+            else if (_lastKey && _lastKey.length < 2) {
+                toggleCursor(true);
+                str += _lastKey;
+                var tm = ctx.measureText(str);
+                ctx.clearRect(0, 0, copy.width, copy.height);
+                ctx.drawImage(copy, 0, 0);
+                QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
+                _locX++;
+                _lastTextX = beginTextX + tm.width;
+            }
+
+            _lastKey = null;
+            await GX.sleep(5);
+        }
+        if (!_inputMode) { return; }
+
+        _inputMode = false;
+        toggleCursor(true);
+
+        if (!preventNewline) {
+            _locX = 0;
+            _lastTextX = 0;
+            if (_locY < _textRows()-1) {
+                _locY = _locY + 1;
+            }
+            else {
+                await _printScroll();
             }
         }
 
-        _lastKey = null; 
-        await GX.sleep(5);
-    }
-    
-    if (!_inputMode) { return; }
-
-    _inputMode = false; 
-    toggleCursor(true);
-
-    // CLEANUP: Remove the temporary input field
-    if (mobileInputFix) {
-        mobileInputFix.remove();
-    }
-    // ----------------------------------------------------
-
-    if (!preventNewline) {
-        _locX = 0;
-        _lastTextX = 0;
-        if (_locY < _textRows()-1) {
-            _locY = _locY + 1;
+        if (values.length < 2) {
+            values[0] = str;
         }
         else {
-            await _printScroll();
+            var vparts = str.split(",");
+            for (var i=0; i < values.length; i++) {
+                values[i] = vparts[i] ? vparts[i] : "";
+            }
         }
     }
 
-    // Final check for numeric input: if numeric, clear str if it's invalid
-    if (isNumeric && str !== "" && isNaN(Number(str))) {
-        str = ""; // If the user presses ENTER on an invalid number, return nothing.
-    }
-
-    if (values.length < 2) {
-        values[0] = str;
-    }
-    else {
-        var vparts = str.split(",");
-        for (var i=0; i < values.length; i++) {
-            values[i] = vparts[i] ? vparts[i] : "";
+    this.sub_InputFromFile = async function(fh, returnValues) {
+        if (!_fileHandles[fh]) {
+            throw new Error("Invalid file handle");
         }
+        if (_fileHandles[fh].mode != QB.INPUT) {
+            throw new Error("Bad file mode");
+        }
+
+        fh = _fileHandles[fh];
+        var text = GX.vfs().readLine(fh.file, fh.offset);
+        fh.offset += text.length + 1;
+        var values = text.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+        for (var i=0; i < returnValues.length; i++) {
+            if (i < values.length) {
+                var v = values[i];
+                // remove surrounding double quotes from string values
+                if (v.startsWith('"') && v.endsWith('"')) {
+                    v = v.substring(1, v.length-1);
+                }
+                returnValues[i] = v;
+            }
+        }
+    };
+
+    this.func_InKey = function() {
+        if (_inkeyBuffer.length < 1) {
+            return "";
+        }
+        return _inkeyBuffer.shift();
     }
-}
 
-    this.func_InKey = function() {
-        if (_inkeyBuffer.length < 1) {
-            return "";
-        }
-        return _inkeyBuffer.shift();
-    }
+    this.func_InStr = function(arg1, arg2, arg3) {
+        _assertParam(arg1, 1);
+        _assertParam(arg2, 2);
+        var startIndex = 0;
+        var strSource = "";
+        var strSearch = "";
+        if (arg3 != undefined) {
+            startIndex = arg1-1;
+            strSource = String(arg2);
+            strSearch = String(arg3);
+        }
+        else {
+            strSource = String(arg1);
+            strSearch = String(arg2);
+        }
+        return strSource.indexOf(strSearch, startIndex)+1;
+    };
 
-    this.func_InStr = function(arg1, arg2, arg3) {
-        _assertParam(arg1, 1);
-        _assertParam(arg2, 2);
-        var startIndex = 0;
-        var strSource = "";
-        var strSearch = "";
-        if (arg3 != undefined) {
-            startIndex = arg1-1;
-            strSource = String(arg2);
-            strSearch = String(arg3);
-        }
-        else {
-            strSource = String(arg1);
-            strSearch = String(arg2);
-        }
-        return strSource.indexOf(strSearch, startIndex)+1;
-    };
+    this.func_Int = function(value) {
+        _assertNumber(value);
+        return Math.floor(value);
+    };
 
-    this.func_Int = function(value) {
-        _assertNumber(value);
-        return Math.floor(value);
-    };
+    this.func_LCase = function(value) {
+        _assertParam(value);
+        return String(value).toLowerCase();
+    };
 
-    this.func_LCase = function(value) {
-        _assertParam(value);
-        return String(value).toLowerCase();
-    };
+    this.func_Left = function(value, n) {
+        _assertParam(value, 1);
+        _assertNumber(n, 2);
+        return String(value).substring(0, n);
+    };
 
-    this.func_Left = function(value, n) {
-        _assertParam(value, 1);
-        _assertNumber(n, 2);
-        return String(value).substring(0, n);
-    };
+    this.func_Len = function(value) {
+        _assertParam(value);
+        return String(value).length;
+    };
 
-    this.func_Len = function(value) {
-        _assertParam(value);
-        return String(value).length;
-    };
+    this.func_Loc = function(fh) {
+        if (!_fileHandles[fh]) {
+            throw new Error("Invalid file handle");
+        }
 
-    this.func_Loc = function(fh) {
-        if (!_fileHandles[fh]) {
-            throw new Error("Invalid file handle");
-        }
+        return _fileHandles[fh].offset;
+    };
 
-        return _fileHandles[fh].offset;
-    };
+    this.func_Log = function(value) {
+        _assertNumber(value);
+        return Math.log(value);
+    };
 
-    this.func_Log = function(value) {
-        _assertNumber(value);
-        return Math.log(value);
-    };
+    this.func_Cdbl = function(value) {
+        _assertNumber(value);
+        const buffer = new ArrayBuffer(16);
+        const view = new DataView(buffer);
+        view.setFloat32(1, value);
+        return view.getFloat32(1);
+    };
 
-    this.func_Cdbl = function(value) {
-        _assertNumber(value);
-        const buffer = new ArrayBuffer(16);
-        const view = new DataView(buffer);
-        view.setFloat32(1, value);
-        return view.getFloat32(1);
-    };
+    this.func_Cint = function(value) {
+        _assertNumber(value);
+        var s = (value < 0) ? -1 : 1;
+        var x = value * s;
+        var r = Math.round(x);
+        return (Math.abs(x) % 1 === .5 ? r - (r % 2) : r) * s;
+    };
 
-    this.func_Cint = function(value) {
-        _assertNumber(value);
-        var s = (value < 0) ? -1 : 1;
-        var x = value * s;
-        var r = Math.round(x);
-        return (Math.abs(x) % 1 === .5 ? r - (r % 2) : r) * s;
-    };
+    this.func_Clng = function(value) {
+        _assertNumber(value);
+        return this.func_Cint(value);
+    };
 
-    this.func_Clng = function(value) {
-        _assertNumber(value);
-        return this.func_Cint(value);
-    };
-
-    this.func_Csng = function(value) {
-        return value; // TODO: Implement this.
-    };
+    this.func_Csng = function(value) {
+        return value; // TODO: Implement this.
+    };
 
     this.sub_Circle = function(step, x, y, radius, color, startAngle, endAngle, aspect) {
 
@@ -3517,7 +3424,7 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
         _strokeDrawColor = _color(15);
 
         _lastKey = null;
-        _inputMode = true;
+        _inputMode = false;
         _inkeyBuffer = [];
         _keyHitBuffer = [];
         _keyDownMap = {};
@@ -4699,3 +4606,96 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
 
     _init();
 }
+
+if (isMobileDevice()) {
+    let hiddenInput = document.createElement('input');
+    hiddenInput.type = 'text';
+    hiddenInput.style.position = 'absolute';
+    hiddenInput.style.left = '-9999px'; // Off-screen
+    hiddenInput.style.opacity = '0'; // Hidden but focusable
+    hiddenInput.style.width = '1px'; // Minimize size
+    hiddenInput.style.height = '1px';
+    hiddenInput.autocapitalize = 'off'; // Disable auto-capitalize for QBASIC-like behavior
+    hiddenInput.autocorrect = 'off'; // Disable auto-correct
+    document.body.appendChild(hiddenInput);
+    hiddenInput.focus(); // Triggers virtual keyboard
+
+    let currentInput = ''; // Track entered text
+    let startLocX = _locX; // Save starting cursor position for backspace
+
+    // Handle text changes (including paste, backspace)
+    hiddenInput.addEventListener('input', (e) => {
+        let newValue = e.target.value;
+        if (newValue.length < currentInput.length) {
+            // Backspace detected: Remove last char from screen
+            if (_locX > startLocX) {
+                _locX--;
+                _setScreenText(' '); // Clear the cell
+                // Optional: Flush and redraw the screen
+                _flushScreenCache(_images[_activeImage]);
+            }
+        } else {
+            // New char added: Get the last char and render it
+            let char = newValue.slice(-1);
+            _setScreenText(char); // Add to _screenText
+            _locX++; // Advance cursor
+            // Redraw the line (use _sub_PrintString or full refresh if needed)
+            _flushScreenCache(_images[_activeImage]);
+
+            // Dispatch custom keydown event to window for original handling
+            const keyEvent = new KeyboardEvent('keydown', {
+                key: char,
+                code: char.charCodeAt(0) > 32 ? `Key${char.toUpperCase()}` : 'Space', // Approximate code
+                shiftKey: char === char.toUpperCase() && /[A-Z]/.test(char), // Detect shift
+                bubbles: true
+            });
+            window.dispatchEvent(keyEvent); // Triggers _addInkeyPress
+        }
+        currentInput = newValue;
+    });
+
+    // Handle Enter to submit input
+    hiddenInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            // Process the full input (e.g., assign to variable in sub_Input)
+            // For example: let inputValue = currentInput; // Use this as the INPUT result
+            _inputMode = false; // Exit input mode
+            document.body.removeChild(hiddenInput); // Clean up
+            // Optional: Hide keyboard if using VirtualKeyboard API
+            if ('virtualKeyboard' in navigator) {
+                navigator.virtualKeyboard.hide();
+            }
+            // Advance to next line if needed
+            _locY++;
+            _locX = 0;
+        }
+    });
+
+    // Prevent blur (keyboard hide) on touch outside; refocus if needed
+    hiddenInput.addEventListener('blur', () => {
+        setTimeout(() => hiddenInput.focus(), 0);
+    });
+} else {
+    // Existing physical keyboard logic (window events)
+}
+
+if ('virtualKeyboard' in navigator) {
+    navigator.virtualKeyboard.overlaysContent = true; // Keyboard overlays canvas without resize
+    navigator.virtualKeyboard.addEventListener('geometrychange', (event) => {
+        const { height } = event.target.boundingRect;
+        // Adjust canvas height or padding to avoid overlap, e.g.:
+        _images[0].canvas.style.paddingBottom = `${height}px`;
+        // Or resize canvas: QB.resize(window.innerWidth, window.innerHeight - height);
+    });
+}
+
+window.addEventListener('resize', () => {
+    if (isMobileDevice() && _inputMode) {
+        // Recalculate canvas size or flush cache
+        _flushAllScreenCache();
+        // Optional: Use Visual Viewport API for precise height
+        const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        QB.resize(window.innerWidth, viewportHeight);
+    }
+});
