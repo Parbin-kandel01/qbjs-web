@@ -2159,29 +2159,154 @@ var QB = new function() {
     }
 }
 
-    this.sub_InputFromFile = async function(fh, returnValues) {
-        if (!_fileHandles[fh]) {
-            throw new Error("Invalid file handle");
-        }
-        if (_fileHandles[fh].mode != QB.INPUT) {
-            throw new Error("Bad file mode");
-        }
+this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
+    _lastKey = null;
+    var str = "";
+    _inputMode = true;
 
-        fh = _fileHandles[fh];
-        var text = GX.vfs().readLine(fh.file, fh.offset);
-        fh.offset += text.length + 1;
-        var values = text.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-        for (var i=0; i < returnValues.length; i++) {
-            if (i < values.length) {
-                var v = values[i];
-                // remove surrounding double quotes from string values
-                if (v.startsWith('"') && v.endsWith('"')) {
-                    v = v.substring(1, v.length-1);
-                }
-                returnValues[i] = v;
-            }
-        }
-    };
+    // Check if the variable expecting input is numeric (typically not ending in $)
+    var isNumeric = (values.length > 0) && (values[0].endsWith("$") == false);
+    
+    // ⭐️ CRITICAL FIX FOR MOBILE VIRTUAL KEYBOARD AND TYPE ENFORCEMENT ⭐️
+    var mobileInputFix = document.createElement("input");
+    mobileInputFix.id = "mobile-input-fix";
+    mobileInputFix.style.position = "absolute";
+    mobileInputFix.style.top = "-100px";
+    mobileInputFix.style.opacity = "0"; // Invisible
+    mobileInputFix.setAttribute('tabindex', '0');
+    mobileInputFix.setAttribute('autocorrect', 'off');
+    mobileInputFix.setAttribute('autocapitalize', 'off');
+    mobileInputFix.setAttribute('spellcheck', 'false');
+    
+    // Set type based on expected QBasic variable type
+    if (isNumeric) {
+        // Use 'tel' for iOS/Android numeric keyboard without spinner controls
+        mobileInputFix.setAttribute('type', 'tel'); 
+    } else {
+        mobileInputFix.setAttribute('type', 'text');
+    }
+
+    document.body.appendChild(mobileInputFix);
+    mobileInputFix.focus({preventScroll: true}); 
+    // ----------------------------------------------------
+
+    _flushScreenCache(_images[_activeImage]);
+
+    if (prompt != undefined) {
+        await QB.sub_Print([prompt, QB.PREVENT_NEWLINE]);
+    }
+    if (prompt == undefined || addQuestionPrompt) {
+        await QB.sub_Print(["? ", QB.PREVENT_NEWLINE]);
+    }
+
+    if (!preventNewline && _locY > _textRows()-1) {
+        await _printScroll();
+        _locY = _textRows()-1;
+    }
+
+    if (!_inputTimeout) {
+        setTimeout(blinkCursor, 400);
+    }
+
+    var ctx = _images[_activeImage].ctx;
+    var copy = document.createElement("canvas");
+    copy.width = _images[_activeImage].canvas.width;
+    copy.height = _images[_activeImage].canvas.height;
+    var copyCtx = copy.getContext("2d");
+    copyCtx.drawImage(_images[_activeImage].canvas, 0, 0);
+
+    var beginTextX = _lastTextX;
+    
+    // CORRECTED INPUT LOOP: Reads value from the HTML input field 
+    while (_lastKey != "Enter" && _inputMode) {
+
+        // Read the current string value from the focused HTML input field
+        var newStr = mobileInputFix.value; 
+
+        if (newStr != str) {
+            // ... (Redrawing logic remains the same)
+            toggleCursor(true);
+            
+            // ⭐️ Numeric Input Filtering ⭐️
+            if (isNumeric) {
+                // Remove non-numeric characters (except - and .) 
+                // and ensure only one decimal point/leading sign
+                let filteredStr = newStr.replace(/[^\d.-]/g, '');
+                
+                // Redraw based on filtered string, but keep the original logic simple 
+                // by trusting the 'tel' keyboard for basic numbers.
+                // We rely on the QB runtime to handle final type conversion.
+
+                // If the user typed invalid characters on a desktop keyboard,
+                // we should stick to the last valid string.
+                // For simplicity and mobile-focus, we rely on the 'tel' type.
+                
+                // To prevent non-numeric characters from appearing on the canvas:
+                // If a new character was added, check if it's a valid part of a number.
+                if (newStr.length > str.length) {
+                    let lastChar = newStr[newStr.length - 1];
+                    let isValid = (lastChar >= '0' && lastChar <= '9') || 
+                                   (lastChar === '.' && str.indexOf('.') === -1) || 
+                                   (lastChar === '-' && str.length === 0);
+
+                    if (!isValid) {
+                        // Reject invalid character by resetting input value
+                        mobileInputFix.value = str;
+                        newStr = str;
+                    }
+                }
+            }
+            
+            str = newStr; // Update the QB runtime's string
+            
+            // Redraw the canvas content to show the characters
+            var tm = ctx.measureText(str);
+            _lastTextX = beginTextX + tm.width;
+            _locX = Math.round(_lastTextX / QB.func__FontWidth());
+
+            ctx.clearRect(0, 0, copy.width, copy.height);
+            ctx.drawImage(copy, 0, 0);
+            QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
+        }
+
+        _lastKey = null; 
+        await GX.sleep(5);
+    }
+    
+    if (!_inputMode) { return; }
+
+    _inputMode = false; 
+    toggleCursor(true);
+
+    // CLEANUP: Remove the temporary input field
+    if (mobileInputFix) {
+        mobileInputFix.remove();
+    }
+    // ----------------------------------------------------
+
+    // ... (Rest of the function is unchanged)
+    if (!preventNewline) {
+        _locX = 0;
+        _lastTextX = 0;
+        if (_locY < _textRows()-1) {
+            _locY = _locY + 1;
+        }
+        else {
+            await _printScroll();
+        }
+    }
+
+    if (values.length < 2) {
+        values[0] = str;
+    }
+    else {
+        var vparts = str.split(",");
+        for (var i=0; i < values.length; i++) {
+            values[i] = vparts[i] ? vparts[i] : "";
+        }
+    }
+}
+// ... (rest of qb.js)
 
     this.func_InKey = function() {
         if (_inkeyBuffer.length < 1) {
