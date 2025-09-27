@@ -158,54 +158,6 @@ var IDE = new function() {
 
         // ⭐ Add this function to your IDE JS file (main.js / editor.js)
 
-// Load code and focus editor
-function loadCodeAndFocus(code) {
-    try {
-        if (typeof editor !== 'undefined' && editor) {
-            editor.setValue(code);
-            editor.focus();
-            console.log('Code loaded and editor focused!');
-        } else {
-            setTimeout(() => loadCodeAndFocus(code), 200);
-        }
-    } catch (err) {
-        console.error('Error in loadCodeAndFocus:', err);
-    }
-}
-
-// Execute console command
-window.executeConsoleCommand = function(command) {
-    try {
-        if (typeof runConsoleCommand === 'function') {
-            runConsoleCommand(command); // Execute command in IDE
-        }
-        console.log('> ' + command); // Log command
-        if (window.flutter_inappwebview) {
-            window.flutter_inappwebview.callHandler('consoleOutput', '> ' + command);
-        }
-    } catch (err) {
-        console.error('Console command error:', err);
-    }
-};
-
-// Override console.log to send to Flutter
-(function() {
-    const originalLog = console.log;
-    console.log = function(...args) {
-        originalLog.apply(console, args);
-        if (window.flutter_inappwebview) {
-            window.flutter_inappwebview.callHandler('consoleOutput', args.join(' '));
-        }
-    };
-})();
-
-// Signal Flutter when IDE is ready
-window.addEventListener('DOMContentLoaded', () => {
-    if (window.flutter_inappwebview) {
-        window.flutter_inappwebview.callHandler('ideReady');
-    }
-    console.log('IDE is ready for Flutter injection.');
-});
 
 
         // initialize the code editor
