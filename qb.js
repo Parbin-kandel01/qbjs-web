@@ -2047,200 +2047,219 @@ var QB = new function() {
         }
     }
 
-    this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
-        _lastKey = null;
-        var str = "";
-        _inputMode = true;
+   this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
+        _lastKey = null;
+        var str = "";
+        _inputMode = true;
 
-        _flushScreenCache(_images[_activeImage]);
+        // ⭐️ CRITICAL FIX FOR MOBILE VIRTUAL KEYBOARD ⭐️
+        // Create a temporary, invisible input field and focus it to force
+        // the mobile browser to show the keyboard.
+        var mobileInputFix = document.createElement("input");
+        mobileInputFix.id = "mobile-input-fix";
+        mobileInputFix.style.position = "absolute";
+        mobileInputFix.style.top = "-100px";
+        mobileInputFix.style.opacity = "0"; // Invisible
+        mobileInputFix.setAttribute('tabindex', '0');
+        document.body.appendChild(mobileInputFix);
+        mobileInputFix.focus(); 
+        // ----------------------------------------------------
 
-        if (prompt != undefined) {
-            await QB.sub_Print([prompt, QB.PREVENT_NEWLINE]);
-        }
-        if (prompt == undefined || addQuestionPrompt) {
-            await QB.sub_Print(["? ", QB.PREVENT_NEWLINE]);
-        }
+        _flushScreenCache(_images[_activeImage]);
 
-        if (!preventNewline && _locY > _textRows()-1) {
-            await _printScroll();
-            _locY = _textRows()-1;
-        }
+        if (prompt != undefined) {
+            await QB.sub_Print([prompt, QB.PREVENT_NEWLINE]);
+        }
+        if (prompt == undefined || addQuestionPrompt) {
+            await QB.sub_Print(["? ", QB.PREVENT_NEWLINE]);
+        }
 
-        if (!_inputTimeout) {
-            setTimeout(blinkCursor, 400);
-        }
+        if (!preventNewline && _locY > _textRows()-1) {
+            await _printScroll();
+            _locY = _textRows()-1;
+        }
 
-        var ctx = _images[_activeImage].ctx;
-        var copy = document.createElement("canvas");
-        copy.width = _images[_activeImage].canvas.width;
-        copy.height = _images[_activeImage].canvas.height;
-        var copyCtx = copy.getContext("2d");
-        copyCtx.drawImage(_images[_activeImage].canvas, 0, 0);
+        if (!_inputTimeout) {
+            setTimeout(blinkCursor, 400);
+        }
 
-        var beginTextX = _lastTextX;
-        while (_lastKey != "Enter" && _inputMode) {
+        var ctx = _images[_activeImage].ctx;
+        var copy = document.createElement("canvas");
+        copy.width = _images[_activeImage].canvas.width;
+        copy.height = _images[_activeImage].canvas.height;
+        var copyCtx = copy.getContext("2d");
+        copyCtx.drawImage(_images[_activeImage].canvas, 0, 0);
 
-            if (_lastKey == "Backspace" && str.length > 0) {
-                toggleCursor(true);
-                _locX--;
-                
-                var tm = ctx.measureText(str);
-                str = str.substring(0, str.length-1);
-                var tm = ctx.measureText(str);
-                _lastTextX = beginTextX + tm.width;
-                ctx.clearRect(0, 0, copy.width, copy.height);
-                ctx.drawImage(copy, 0, 0);
-                QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
-            }
+        var beginTextX = _lastTextX;
+        while (_lastKey != "Enter" && _inputMode) {
 
-            else if (_lastKey && _lastKey.length < 2) {
-                toggleCursor(true);
-                str += _lastKey;
-                var tm = ctx.measureText(str);
-                ctx.clearRect(0, 0, copy.width, copy.height);
-                ctx.drawImage(copy, 0, 0);
-                QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
-                _locX++;
-                _lastTextX = beginTextX + tm.width;
-            }
+            if (_lastKey == "Backspace" && str.length > 0) {
+                toggleCursor(true);
+                _locX--;
+                
+                var tm = ctx.measureText(str);
+                str = str.substring(0, str.length-1);
+                var tm = ctx.measureText(str);
+                _lastTextX = beginTextX + tm.width;
+                ctx.clearRect(0, 0, copy.width, copy.height);
+                ctx.drawImage(copy, 0, 0);
+                QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
+            }
 
-            _lastKey = null;
-            await GX.sleep(5);
-        }
-        if (!_inputMode) { return; }
+            else if (_lastKey && _lastKey.length < 2) {
+                toggleCursor(true);
+                str += _lastKey;
+                var tm = ctx.measureText(str);
+                ctx.clearRect(0, 0, copy.width, copy.height);
+                ctx.drawImage(copy, 0, 0);
+                QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
+                _locX++;
+                _lastTextX = beginTextX + tm.width;
+            }
 
-        _inputMode = false;
-        toggleCursor(true);
+            _lastKey = null;
+            await GX.sleep(5);
+        }
+        if (!_inputMode) { return; }
 
-        if (!preventNewline) {
-            _locX = 0;
-            _lastTextX = 0;
-            if (_locY < _textRows()-1) {
-                _locY = _locY + 1;
-            }
-            else {
-                await _printScroll();
-            }
-        }
+        _inputMode = false;
+        toggleCursor(true);
 
-        if (values.length < 2) {
-            values[0] = str;
-        }
-        else {
-            var vparts = str.split(",");
-            for (var i=0; i < values.length; i++) {
-                values[i] = vparts[i] ? vparts[i] : "";
-            }
-        }
-    }
+        // CLEANUP: Remove the temporary input field
+        if (mobileInputFix) {
+            mobileInputFix.remove();
+        }
+        // ----------------------------------------------------
 
-    this.sub_InputFromFile = async function(fh, returnValues) {
-        if (!_fileHandles[fh]) {
-            throw new Error("Invalid file handle");
-        }
-        if (_fileHandles[fh].mode != QB.INPUT) {
-            throw new Error("Bad file mode");
-        }
+        if (!preventNewline) {
+            _locX = 0;
+            _lastTextX = 0;
+            if (_locY < _textRows()-1) {
+                _locY = _locY + 1;
+            }
+            else {
+                await _printScroll();
+            }
+        }
 
-        fh = _fileHandles[fh];
-        var text = GX.vfs().readLine(fh.file, fh.offset);
-        fh.offset += text.length + 1;
-        var values = text.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-        for (var i=0; i < returnValues.length; i++) {
-            if (i < values.length) {
-                var v = values[i];
-                // remove surrounding double quotes from string values
-                if (v.startsWith('"') && v.endsWith('"')) {
-                    v = v.substring(1, v.length-1);
-                }
-                returnValues[i] = v;
-            }
-        }
-    };
+        if (values.length < 2) {
+            values[0] = str;
+        }
+        else {
+            var vparts = str.split(",");
+            for (var i=0; i < values.length; i++) {
+                values[i] = vparts[i] ? vparts[i] : "";
+            }
+        }
+    }
 
-    this.func_InKey = function() {
-        if (_inkeyBuffer.length < 1) {
-            return "";
-        }
-        return _inkeyBuffer.shift();
-    }
+    this.sub_InputFromFile = async function(fh, returnValues) {
+        if (!_fileHandles[fh]) {
+            throw new Error("Invalid file handle");
+        }
+        if (_fileHandles[fh].mode != QB.INPUT) {
+            throw new Error("Bad file mode");
+        }
 
-    this.func_InStr = function(arg1, arg2, arg3) {
-        _assertParam(arg1, 1);
-        _assertParam(arg2, 2);
-        var startIndex = 0;
-        var strSource = "";
-        var strSearch = "";
-        if (arg3 != undefined) {
-            startIndex = arg1-1;
-            strSource = String(arg2);
-            strSearch = String(arg3);
-        }
-        else {
-            strSource = String(arg1);
-            strSearch = String(arg2);
-        }
-        return strSource.indexOf(strSearch, startIndex)+1;
-    };
+        fh = _fileHandles[fh];
+        var text = GX.vfs().readLine(fh.file, fh.offset);
+        fh.offset += text.length + 1;
+        var values = text.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+        for (var i=0; i < returnValues.length; i++) {
+            if (i < values.length) {
+                var v = values[i];
+                // remove surrounding double quotes from string values
+                if (v.startsWith('"') && v.endsWith('"')) {
+                    v = v.substring(1, v.length-1);
+                }
+                returnValues[i] = v;
+            }
+        }
+    };
 
-    this.func_Int = function(value) {
-        _assertNumber(value);
-        return Math.floor(value);
-    };
+    this.func_InKey = function() {
+        if (_inkeyBuffer.length < 1) {
+            return "";
+        }
+        return _inkeyBuffer.shift();
+    }
 
-    this.func_LCase = function(value) {
-        _assertParam(value);
-        return String(value).toLowerCase();
-    };
+    this.func_InStr = function(arg1, arg2, arg3) {
+        _assertParam(arg1, 1);
+        _assertParam(arg2, 2);
+        var startIndex = 0;
+        var strSource = "";
+        var strSearch = "";
+        if (arg3 != undefined) {
+            startIndex = arg1-1;
+            strSource = String(arg2);
+            strSearch = String(arg3);
+        }
+        else {
+            strSource = String(arg1);
+            strSearch = String(arg2);
+        }
+        return strSource.indexOf(strSearch, startIndex)+1;
+    };
 
-    this.func_Left = function(value, n) {
-        _assertParam(value, 1);
-        _assertNumber(n, 2);
-        return String(value).substring(0, n);
-    };
+    this.func_Int = function(value) {
+        _assertNumber(value);
+        return Math.floor(value);
+    };
 
-    this.func_Len = function(value) {
-        _assertParam(value);
-        return String(value).length;
-    };
+    this.func_LCase = function(value) {
+        _assertParam(value);
+        return String(value).toLowerCase();
+    };
 
-    this.func_Loc = function(fh) {
-        if (!_fileHandles[fh]) {
-            throw new Error("Invalid file handle");
-        }
+    this.func_Left = function(value, n) {
+        _assertParam(value, 1);
+        _assertNumber(n, 2);
+        return String(value).substring(0, n);
+    };
 
-        return _fileHandles[fh].offset;
-    };
+    this.func_Len = function(value) {
+        _assertParam(value);
+        return String(value).length;
+    };
 
-    this.func_Log = function(value) {
-        _assertNumber(value);
-        return Math.log(value);
-    };
+    this.func_Loc = function(fh) {
+        if (!_fileHandles[fh]) {
+            throw new Error("Invalid file handle");
+        }
 
-    this.func_Cdbl = function(value) {
-        _assertNumber(value);
-        const buffer = new ArrayBuffer(16);
-        const view = new DataView(buffer);
-        view.setFloat32(1, value);
-        return view.getFloat32(1);
-    };
+        return _fileHandles[fh].offset;
+    };
 
-    this.func_Cint = function(value) {
-        _assertNumber(value);
-        var s = (value < 0) ? -1 : 1;
-        var x = value * s;
-        var r = Math.round(x);
-        return (Math.abs(x) % 1 === .5 ? r - (r % 2) : r) * s;
-    };
+    this.func_Log = function(value) {
+        _assertNumber(value);
+        return Math.log(value);
+    };
 
-    this.func_Clng = function(value) {
-        _assertNumber(value);
-        return this.func_Cint(value);
-    };
+    this.func_Cdbl = function(value) {
+        _assertNumber(value);
+        const buffer = new ArrayBuffer(16);
+        const view = new DataView(buffer);
+        view.setFloat32(1, value);
+        return view.getFloat32(1);
+    };
 
-    this.func_Csng = function(value) {
-        return value; // TODO: Implement this.
-    };
+    this.func_Cint = function(value) {
+        _assertNumber(value);
+        var s = (value < 0) ? -1 : 1;
+        var x = value * s;
+        var r = Math.round(x);
+        return (Math.abs(x) % 1 === .5 ? r - (r % 2) : r) * s;
+    };
+
+    this.func_Clng = function(value) {
+        _assertNumber(value);
+        return this.func_Cint(value);
+    };
+
+    this.func_Csng = function(value) {
+        return value; // TODO: Implement this.
+    };
 
     this.sub_Circle = function(step, x, y, radius, color, startAngle, endAngle, aspect) {
 
@@ -3424,7 +3443,7 @@ var QB = new function() {
         _strokeDrawColor = _color(15);
 
         _lastKey = null;
-        _inputMode = false;
+        _inputMode = true;
         _inkeyBuffer = [];
         _keyHitBuffer = [];
         _keyDownMap = {};
