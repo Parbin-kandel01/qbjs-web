@@ -156,10 +156,6 @@ var IDE = new function() {
             GitHelp.navhome();
         }
 
-        // ⭐ Add this function to your IDE JS file (main.js / editor.js)
-
-
-
         // initialize the code editor
         editor = CodeMirror(document.querySelector("#code"), {
             lineNumbers: true,
@@ -388,121 +384,116 @@ var IDE = new function() {
         return result;
     }
 
+    async function _runProgram() {
+        _e.loadScreen.style.display = "none";
 
-    
-  async function _runProgram() {
-        _e.loadScreen.style.display = "none";
+        if (sizeMode == "max") {
+            _slideLeft();
+        }
+        GX.reset();
+        QB.start();
 
-        if (sizeMode == "max") {
-            _slideLeft();
-        }
-        GX.reset();
-        QB.start();
+        // sync tabs with vfs
+        _saveCodeTabs();
 
-        // sync tabs with vfs
-        _saveCodeTabs();
+        var qbCode = editor.getValue();
+        if (!QBCompiler) { QBCompiler = await _QBCompiler(); }
+        var jsCode = await QBCompiler.compile(qbCode);
 
-        var qbCode = editor.getValue();
-        if (!QBCompiler) { QBCompiler = await _QBCompiler(); }
-        var jsCode = await QBCompiler.compile(qbCode);
+        await displayWarnings();
 
-        await displayWarnings();
+        if (_hasError()) {
+            consoleVisible = true;
+            _showConsole(consoleVisible)
+            _changeTab("console");
+            window.onresize();
+            QB.halt();
+            GX.sceneStop();
+            return false;
+        }
 
-        if (_hasError()) {
-            consoleVisible = true;
-            _showConsole(consoleVisible)
-            _changeTab("console");
-            window.onresize();
-            QB.halt();
-            GX.sceneStop();
-            return false;
-        }
+        jscm.setValue(jsCode);
+        window.onresize();
 
-        jscm.setValue(jsCode);
-        window.onresize();
+        try {
+            const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+            var codeFn = new AsyncFunction(jsCode);
+            await codeFn();
+        }
+        catch (error) {
+            console.error(error);
 
-        try {
-            const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-            var codeFn = new AsyncFunction(jsCode);
-            await codeFn();
-        }
-        catch (error) {
-            console.error(error);
+            // find the source line, if possible
+            var srcLine = await _getErrorLine(error);
 
-            // find the source line, if possible
-            var srcLine = await _getErrorLine(error);
+            var table = _el("warning-table");
+            if (table) {
+                tr = document.createElement("tr");
+                _addWarningCell(tr, "ERROR");
+                _addWarningCell(tr, ":");
+                _addWarningCell(tr, srcLine);
+                _addWarningCell(tr, ":");
+                _addWarningCell(tr, "<div style='white-space:pre'>" + error.message + "\n<div style='color:#666'>" + error.stack + "</div></div>", "99%");
+                tr.codeLine = srcLine - 1;
+                tr.onclick = _gotoWarning;
+                table.append(tr);
+            }
 
-            var table = _el("warning-table");
-            if (table) {
-                tr = document.createElement("tr");
-                _addWarningCell(tr, "ERROR");
-                _addWarningCell(tr, ":");
-                _addWarningCell(tr, srcLine);
-                _addWarningCell(tr, ":");
-                _addWarningCell(tr, "<div style='white-space:pre'>" + error.message + "\n<div style='color:#666'>" + error.stack + "</div></div>", "99%");
-                tr.codeLine = srcLine - 1;
-                tr.onclick = _gotoWarning;
-                table.append(tr);
-            }
+            consoleVisible = true;
+            _showConsole(consoleVisible);
+            _changeTab("console");
+            window.onresize();
+            QB.halt();
+            GX.sceneStop();
+        }
+        _e.gxContainer.focus();
 
-            consoleVisible = true;
-            _showConsole(consoleVisible);
-            _changeTab("console");
-            window.onresize();
-            QB.halt();
-            GX.sceneStop();
-        }
-        // FIX for mobile keyboard: ensure the element is focusable (tabindex=0) 
-        // before giving it focus, improving mobile compatibility.
-        _e.gxContainer.setAttribute('tabindex', '0');
-        _e.gxContainer.focus();
+        return false;
+    }
 
-        return false;
-    }
+    function _hasError() {
+        var warnings = QBCompiler.getWarnings();
+        for (var i=0; i < warnings.length; i++) {
+            if (warnings[i].mtype == 1) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-    function _hasError() {
-        var warnings = QBCompiler.getWarnings();
-        for (var i=0; i < warnings.length; i++) {
-            if (warnings[i].mtype == 1) {
-                return true;
-            }
-        }
-        return false;
-    }
+    function _stopProgram() {
+        QB.halt();
+        GX.sceneStop();
+    }
 
-    function _stopProgram() {
-        QB.halt();
-        GX.sceneStop();
-    }
+    function _shareProgram() {
+        var zout = new Shorty();
+        var b64 = LZUTF8.compress(editor.getValue(), { outputEncoding: "Base64" });
+        var baseUrl = location.href.split('?')[0];
 
-    function _shareProgram() {
-        var zout = new Shorty();
-        var b64 = LZUTF8.compress(editor.getValue(), { outputEncoding: "Base64" });
-        var baseUrl = location.href.split('?')[0];
+        var mode = _e.shareMode.value;
+        var codeShare = _e.shareCode;
+        var url = baseUrl + "?";
+        if (mode) {
+            url += "mode=" + mode + "&";
+        }
+        url += "code=" + b64;
+        codeShare.value = url;
+        if (!_e.shareDialog.open) {
+            _e.shareDialog.showModal();
+        }
+        codeShare.focus();
+        codeShare.select();
 
-        var mode = _e.shareMode.value;
-        var codeShare = _e.shareCode;
-        var url = baseUrl + "?";
-        if (mode) {
-            url += "mode=" + mode + "&";
-        }
-        url += "code=" + b64;
-        codeShare.value = url;
-        if (!_e.shareDialog.open) {
-            _e.shareDialog.showModal();
-        }
-        codeShare.focus();
-        codeShare.select();
-
-        var exportVisible = (mode == "play" || mode == "auto");
-        _e.exportButton.title = (exportVisible) ? "" : "Select Play or Auto mode to enable Export";
-        if (exportVisible) { 
-            _e.exportButton.classList.remove("disabled");
-        }
-        else {
-            _e.exportButton.classList.add("disabled");
-        }
-    }
+        var exportVisible = (mode == "play" || mode == "auto");
+        _e.exportButton.title = (exportVisible) ? "" : "Select Play or Auto mode to enable Export";
+        if (exportVisible) { 
+            _e.exportButton.classList.remove("disabled");
+        }
+        else {
+            _e.exportButton.classList.add("disabled");
+        }
+    }
 
     function _changeTheme(newTheme) {
         theme = newTheme;
