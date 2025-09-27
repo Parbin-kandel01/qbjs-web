@@ -173,7 +173,7 @@ var QB = new function() {
     function _width(imageId) { return 640; }
 
 
-    // --- START: MOBILE INPUT SETUP FUNCTION (New for virtual keyboard support) ---
+    // --- START: MOBILE INPUT SETUP FUNCTION (Updated for scope correction) ---
     function _setupMobileInput() {
         // Create an off-screen, invisible textarea element
         _tempInput = document.createElement('textarea');
@@ -210,7 +210,8 @@ var QB = new function() {
         });
 
         // Exposed methods for the QBasic runner to start and stop input
-        QB.startInput = function() {
+        // **FIXED:** Using 'this' instead of 'QB' to attach to the created object.
+        this.startInput = function() {
             if (_inputMode) return; // Already running
             
             _inputMode = true;
@@ -230,7 +231,7 @@ var QB = new function() {
             });
         };
 
-        QB.finishInput = function() {
+        this.finishInput = function() {
             if (!_inputMode) return "";
             
             _inputMode = false;
@@ -241,7 +242,7 @@ var QB = new function() {
             return _inputBuffer; // Return the final string
         };
 
-        QB.getCurrentInput = function() {
+        this.getCurrentInput = function() {
             return _inputBuffer;
         }
     }
@@ -587,14 +588,14 @@ var QB = new function() {
         return _inKeyMap[_lastKey] || "";
     };
 
-    // --- START: INPUT IMPLEMENTATION (Updated for async mobile support) ---
+    // --- START: INPUT IMPLEMENTATION (Updated for scope correction) ---
     this.func__Input = async function(prompt) {
         _assertParam(prompt, 1);
         this.sub__Print(prompt, _activeImage); // Print prompt
 
-        await QB.startInput(); // Pause QBasic runner and show virtual keyboard
+        await this.startInput(); // **FIXED:** Use 'this'
 
-        var result = QB.finishInput(); // Get result and hide keyboard
+        var result = this.finishInput(); // **FIXED:** Use 'this'
         // NOTE: The result might need conversion from string to number in the runner
         return result; 
     };
@@ -603,9 +604,9 @@ var QB = new function() {
         _assertParam(prompt, 1);
         this.sub__Print(prompt, _activeImage); // Print prompt
 
-        await QB.startInput(); // Pause QBasic runner and show virtual keyboard
+        await this.startInput(); // **FIXED:** Use 'this'
 
-        return QB.finishInput(); // Get result (string) and hide keyboard
+        return this.finishInput(); // **FIXED:** Use 'this' (returns string)
     };
     // --- END: INPUT IMPLEMENTATION ---
 
@@ -1060,8 +1061,9 @@ var QB = new function() {
         _initKeyHitMap();
         _initCharMap();
         
-        // --- START: MOBILE INPUT INIT (New) ---
-        _setupMobileInput();
+        // --- START: MOBILE INPUT INIT ---
+        // Pass 'this' so the setup function can attach methods to the QB object instance
+        _setupMobileInput.call(this);
         // --- END: MOBILE INPUT INIT ---
 
         addEventListener("keydown", function(event) { 
@@ -1087,13 +1089,15 @@ var QB = new function() {
                 // **INPUT MODE (Virtual Keyboard Active):**
                 // CRITICAL: Prevent default only for "Enter" to finish the INPUT command.
                 if (event.key === "Enter") {
-                    event.preventDefault();
+                    // Do not check event.defaultPrevented here, as we specifically want to prevent the default
+                    // behavior (like submitting a form or moving focus) when in input mode.
+                    event.preventDefault(); 
                     if (_inputResolver) {
                         _inputResolver(); // Resolve the promise to continue QBasic execution
                     }
                 } else {
                     // Allow all other keys to pass to the hidden <textarea> for input
-                    // Do not preventDefault() here, otherwise native mobile keyboard won't work
+                    // Do not preventDefault() here.
                 }
             }
         });
