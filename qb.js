@@ -4624,12 +4624,12 @@ var QB = new function() {
         return _convertCharMap(str, _ccharMap);
     };
 
-   function _init() {
+ function _init() {
         _initColorTable();
         _initInKeyMap();
         _initKeyHitMap();
         _initCharMap();
-        _setupMobileInput(); // <-- Call the new setup function
+        _setupMobileInput(); // <-- Correctly calls the setup function
 
         addEventListener("keydown", function(event) { 
             if (!_runningFlag) { return; }
@@ -4688,4 +4688,5 @@ var QB = new function() {
     }
 
     _init();
-} // End of QB object
+} 
+// This final bracket is the end of the entire var QB = new function() { ... }
