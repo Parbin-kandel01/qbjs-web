@@ -2047,7 +2047,7 @@ var QB = new function() {
         }
     }
 
-    this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
+this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
     _lastKey = null;
     var str = "";
     _inputMode = true;
