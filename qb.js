@@ -158,7 +158,7 @@ var QB = new function() {
         return index;
     }
     
-    // Helper function stubs (Preserved from the previous working code)
+    // Helper function stubs
     function _initColorTable() { /* Placeholder */ }
     function _initInKeyMap() { /* Placeholder */ }
     function _initKeyHitMap() { /* Placeholder */ }
@@ -210,7 +210,7 @@ var QB = new function() {
         });
 
         // Exposed methods for the QBasic runner to start and stop input
-        // **FIXED:** Using 'this' instead of 'QB' to attach to the created object.
+        // Using 'this' to attach methods to the QB object instance being created
         this.startInput = function() {
             if (_inputMode) return; // Already running
             
@@ -252,12 +252,6 @@ var QB = new function() {
     // QBasic Functions (Preserved)
     // ----------------------------------------------------
 
-    this.func__Abs = function(x) { /* ... */ };
-    this.func__Acos = function(x) { /* ... */ };
-    this.func__Acosh = function(x) { /* ... */ };
-    this.sub__AcqTouch = function(index) { /* ... */ };
-    // ... [Many other functions preserved] ...
-
     this.func__Abs = function(x) {
         _assertNumber(x, 1);
         return Math.abs(x);
@@ -275,6 +269,7 @@ var QB = new function() {
 
     this.sub__AcqTouch = function(index) {
         _assertNumber(index, 1);
+        // Assuming GX is defined externally
         GX._acqTouch(index);
     };
 
@@ -389,11 +384,13 @@ var QB = new function() {
     };
 
     this.func__Cd = function() {
+        // Assuming GX.vfsCwd() is defined externally
         return GX.vfsCwd();
     };
 
     this.sub__Cd = function(dirName) {
         _assertParam(dirName, 1);
+        // Assuming GX.vfsCd(dirName) is defined externally
         GX.vfsCd(dirName);
     };
 
@@ -435,6 +432,7 @@ var QB = new function() {
     this.sub__Delay = async function(seconds) {
         _assertNumber(seconds, 1);
         _delayingFlag = true;
+        // Assuming global 'delay' function is defined
         await delay(seconds);
         _delayingFlag = false;
     };
@@ -550,6 +548,7 @@ var QB = new function() {
 
     this.sub__FreeTouch = function(index) {
         _assertNumber(index, 1);
+        // Assuming GX._freeTouch(index) is defined externally
         GX._freeTouch(index);
     };
 
@@ -588,14 +587,14 @@ var QB = new function() {
         return _inKeyMap[_lastKey] || "";
     };
 
-    // --- START: INPUT IMPLEMENTATION (Updated for scope correction) ---
+    // --- START: INPUT IMPLEMENTATION ---
     this.func__Input = async function(prompt) {
         _assertParam(prompt, 1);
         this.sub__Print(prompt, _activeImage); // Print prompt
 
-        await this.startInput(); // **FIXED:** Use 'this'
-
-        var result = this.finishInput(); // **FIXED:** Use 'this'
+        await this.startInput(); // Use 'this'
+        
+        var result = this.finishInput(); // Use 'this'
         // NOTE: The result might need conversion from string to number in the runner
         return result; 
     };
@@ -604,9 +603,9 @@ var QB = new function() {
         _assertParam(prompt, 1);
         this.sub__Print(prompt, _activeImage); // Print prompt
 
-        await this.startInput(); // **FIXED:** Use 'this'
+        await this.startInput(); // Use 'this'
 
-        return this.finishInput(); // **FIXED:** Use 'this' (returns string)
+        return this.finishInput(); // Use 'this' (returns string)
     };
     // --- END: INPUT IMPLEMENTATION ---
 
@@ -708,6 +707,7 @@ var QB = new function() {
 
     this.sub__MkDir = async function(dirName) {
         _assertParam(dirName, 1);
+        // Assuming GX.vfsMkDir(dirName) is defined externally
         await GX.vfsMkDir(dirName);
     };
 
@@ -946,6 +946,7 @@ var QB = new function() {
         _fonts[fnt].monospace = false;
         
         // determine the font width and height
+        // Assuming GX.ctx() is defined externally
         var ctx = GX.ctx();
         ctx.font = size + " " + _fonts[fnt].name;
         var tm = ctx.measureText("M");
@@ -1061,8 +1062,9 @@ var QB = new function() {
         _initKeyHitMap();
         _initCharMap();
         
-        // --- START: MOBILE INPUT INIT ---
-        // Pass 'this' so the setup function can attach methods to the QB object instance
+        // --- START: MOBILE INPUT INIT (CRITICAL FIX) ---
+        // We explicitly bind 'this' to _setupMobileInput so its assignments (this.startInput)
+        // land on the QB object instance.
         _setupMobileInput.call(this);
         // --- END: MOBILE INPUT INIT ---
 
@@ -1089,8 +1091,6 @@ var QB = new function() {
                 // **INPUT MODE (Virtual Keyboard Active):**
                 // CRITICAL: Prevent default only for "Enter" to finish the INPUT command.
                 if (event.key === "Enter") {
-                    // Do not check event.defaultPrevented here, as we specifically want to prevent the default
-                    // behavior (like submitting a form or moving focus) when in input mode.
                     event.preventDefault(); 
                     if (_inputResolver) {
                         _inputResolver(); // Resolve the promise to continue QBasic execution
