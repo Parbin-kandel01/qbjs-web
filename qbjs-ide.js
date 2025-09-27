@@ -388,116 +388,121 @@ var IDE = new function() {
         return result;
     }
 
-    async function _runProgram() {
-        _e.loadScreen.style.display = "none";
 
-        if (sizeMode == "max") {
-            _slideLeft();
-        }
-        GX.reset();
-        QB.start();
+    
+  async function _runProgram() {
+        _e.loadScreen.style.display = "none";
 
-        // sync tabs with vfs
-        _saveCodeTabs();
+        if (sizeMode == "max") {
+            _slideLeft();
+        }
+        GX.reset();
+        QB.start();
 
-        var qbCode = editor.getValue();
-        if (!QBCompiler) { QBCompiler = await _QBCompiler(); }
-        var jsCode = await QBCompiler.compile(qbCode);
+        // sync tabs with vfs
+        _saveCodeTabs();
 
-        await displayWarnings();
+        var qbCode = editor.getValue();
+        if (!QBCompiler) { QBCompiler = await _QBCompiler(); }
+        var jsCode = await QBCompiler.compile(qbCode);
 
-        if (_hasError()) {
-            consoleVisible = true;
-            _showConsole(consoleVisible)
-            _changeTab("console");
-            window.onresize();
-            QB.halt();
-            GX.sceneStop();
-            return false;
-        }
+        await displayWarnings();
 
-        jscm.setValue(jsCode);
-        window.onresize();
+        if (_hasError()) {
+            consoleVisible = true;
+            _showConsole(consoleVisible)
+            _changeTab("console");
+            window.onresize();
+            QB.halt();
+            GX.sceneStop();
+            return false;
+        }
 
-        try {
-            const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-            var codeFn = new AsyncFunction(jsCode);
-            await codeFn();
-        }
-        catch (error) {
-            console.error(error);
+        jscm.setValue(jsCode);
+        window.onresize();
 
-            // find the source line, if possible
-            var srcLine = await _getErrorLine(error);
+        try {
+            const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+            var codeFn = new AsyncFunction(jsCode);
+            await codeFn();
+        }
+        catch (error) {
+            console.error(error);
 
-            var table = _el("warning-table");
-            if (table) {
-                tr = document.createElement("tr");
-                _addWarningCell(tr, "ERROR");
-                _addWarningCell(tr, ":");
-                _addWarningCell(tr, srcLine);
-                _addWarningCell(tr, ":");
-                _addWarningCell(tr, "<div style='white-space:pre'>" + error.message + "\n<div style='color:#666'>" + error.stack + "</div></div>", "99%");
-                tr.codeLine = srcLine - 1;
-                tr.onclick = _gotoWarning;
-                table.append(tr);
-            }
+            // find the source line, if possible
+            var srcLine = await _getErrorLine(error);
 
-            consoleVisible = true;
-            _showConsole(consoleVisible);
-            _changeTab("console");
-            window.onresize();
-            QB.halt();
-            GX.sceneStop();
-        }
-        _e.gxContainer.focus();
+            var table = _el("warning-table");
+            if (table) {
+                tr = document.createElement("tr");
+                _addWarningCell(tr, "ERROR");
+                _addWarningCell(tr, ":");
+                _addWarningCell(tr, srcLine);
+                _addWarningCell(tr, ":");
+                _addWarningCell(tr, "<div style='white-space:pre'>" + error.message + "\n<div style='color:#666'>" + error.stack + "</div></div>", "99%");
+                tr.codeLine = srcLine - 1;
+                tr.onclick = _gotoWarning;
+                table.append(tr);
+            }
 
-        return false;
-    }
+            consoleVisible = true;
+            _showConsole(consoleVisible);
+            _changeTab("console");
+            window.onresize();
+            QB.halt();
+            GX.sceneStop();
+        }
+        // FIX for mobile keyboard: ensure the element is focusable (tabindex=0) 
+        // before giving it focus, improving mobile compatibility.
+        _e.gxContainer.setAttribute('tabindex', '0');
+        _e.gxContainer.focus();
 
-    function _hasError() {
-        var warnings = QBCompiler.getWarnings();
-        for (var i=0; i < warnings.length; i++) {
-            if (warnings[i].mtype == 1) {
-                return true;
-            }
-        }
-        return false;
-    }
+        return false;
+    }
 
-    function _stopProgram() {
-        QB.halt();
-        GX.sceneStop();
-    }
+    function _hasError() {
+        var warnings = QBCompiler.getWarnings();
+        for (var i=0; i < warnings.length; i++) {
+            if (warnings[i].mtype == 1) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-    function _shareProgram() {
-        var zout = new Shorty();
-        var b64 = LZUTF8.compress(editor.getValue(), { outputEncoding: "Base64" });
-        var baseUrl = location.href.split('?')[0];
+    function _stopProgram() {
+        QB.halt();
+        GX.sceneStop();
+    }
 
-        var mode = _e.shareMode.value;
-        var codeShare = _e.shareCode;
-        var url = baseUrl + "?";
-        if (mode) {
-            url += "mode=" + mode + "&";
-        }
-        url += "code=" + b64;
-        codeShare.value = url;
-        if (!_e.shareDialog.open) {
-            _e.shareDialog.showModal();
-        }
-        codeShare.focus();
-        codeShare.select();
+    function _shareProgram() {
+        var zout = new Shorty();
+        var b64 = LZUTF8.compress(editor.getValue(), { outputEncoding: "Base64" });
+        var baseUrl = location.href.split('?')[0];
 
-        var exportVisible = (mode == "play" || mode == "auto");
-        _e.exportButton.title = (exportVisible) ? "" : "Select Play or Auto mode to enable Export";
-        if (exportVisible) { 
-            _e.exportButton.classList.remove("disabled");
-        }
-        else {
-            _e.exportButton.classList.add("disabled");
-        }
-    }
+        var mode = _e.shareMode.value;
+        var codeShare = _e.shareCode;
+        var url = baseUrl + "?";
+        if (mode) {
+            url += "mode=" + mode + "&";
+        }
+        url += "code=" + b64;
+        codeShare.value = url;
+        if (!_e.shareDialog.open) {
+            _e.shareDialog.showModal();
+        }
+        codeShare.focus();
+        codeShare.select();
+
+        var exportVisible = (mode == "play" || mode == "auto");
+        _e.exportButton.title = (exportVisible) ? "" : "Select Play or Auto mode to enable Export";
+        if (exportVisible) { 
+            _e.exportButton.classList.remove("disabled");
+        }
+        else {
+            _e.exportButton.classList.add("disabled");
+        }
+    }
 
     function _changeTheme(newTheme) {
         theme = newTheme;
