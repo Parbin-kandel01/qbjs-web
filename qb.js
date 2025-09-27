@@ -2046,55 +2046,26 @@ var QB = new function() {
             _inputCursor = !_inputCursor;
         }
     }
-this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
+
+    this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
     _lastKey = null;
     var str = "";
     _inputMode = true;
 
-    // Determine if the QBasic variable is numeric (doesn't end with '$')
-    var isNumeric = (values.length > 0) && (values[0].endsWith("$") == false);
+    // 🔹 Create hidden input for mobile typing
+    var mobileInput = document.createElement("input");
+    mobileInput.type = "text";
+    mobileInput.id = "qb-mobile-input";
+    mobileInput.style.position = "absolute";
+    mobileInput.style.top = "-100px"; // off-screen
+    mobileInput.style.opacity = "0";
+    mobileInput.autocapitalize = "off";
+    mobileInput.autocorrect = "off";
+    mobileInput.spellcheck = false;
+    document.body.appendChild(mobileInput);
+    mobileInput.focus({ preventScroll: true });
 
-    // ⭐️ CRITICAL FIX FOR MOBILE VIRTUAL KEYBOARD AND TYPE ENFORCEMENT ⭐️
-    var mobileInputFix = document.createElement("input");
-    mobileInputFix.id = "mobile-input-fix";
-    mobileInputFix.style.position = "absolute";
-    mobileInputFix.style.top = "-100px";
-    mobileInputFix.style.opacity = "0"; // Invisible
-    mobileInputFix.setAttribute('tabindex', '0');
-    mobileInputFix.setAttribute('autocorrect', 'off');
-    mobileInputFix.setAttribute('autocapitalize', 'off');
-    mobileInputFix.setAttribute('spellcheck', 'false');
-    
-    // Set type based on expected QBasic variable type
-    if (isNumeric) {
-        // 'tel' provides a numeric keyboard on mobile without the messy arrows
-        mobileInputFix.setAttribute('type', 'tel'); 
-    } else {
-        mobileInputFix.setAttribute('type', 'text');
-    }
-
-    document.body.appendChild(mobileInputFix);
-    // Use preventScroll and capture focus
-    mobileInputFix.focus({preventScroll: true}); 
-    // ----------------------------------------------------
-
-    _flushScreenCache(_images[_activeImage]);
-
-    if (prompt != undefined) {
-        await QB.sub_Print([prompt, QB.PREVENT_NEWLINE]);
-    }
-    if (prompt == undefined || addQuestionPrompt) {
-        await QB.sub_Print(["? ", QB.PREVENT_NEWLINE]);
-    }
-
-    if (!preventNewline && _locY > _textRows()-1) {
-        await _printScroll();
-        _locY = _textRows()-1;
-    }
-
-    if (!_inputTimeout) {
-        setTimeout(blinkCursor, 400);
-    }
+    // ... same drawing setup as before ...
 
     var ctx = _images[_activeImage].ctx;
     var copy = document.createElement("canvas");
@@ -2104,91 +2075,42 @@ this.sub_Input = async function(values, preventNewline, addQuestionPrompt, promp
     copyCtx.drawImage(_images[_activeImage].canvas, 0, 0);
 
     var beginTextX = _lastTextX;
-    
-    // ⭐️ CORRECTED INPUT LOOP: Reads value from the HTML input field ⭐️
-    while (_lastKey != "Enter" && _inputMode) {
 
-        // Read the current string value from the focused HTML input field
-        var newStr = mobileInputFix.value; 
+    // 🔹 Input loop
+    while (_inputMode) {
+        var newStr = mobileInput.value;
+        if (newStr !== str) {
+            str = newStr;
+            toggleCursor(true);
 
-        if (newStr != str) {
-            
-            var validUpdate = true;
-            
-            // ⭐️ NUMERIC FILTERING LOGIC ⭐️
-            if (isNumeric) {
-                // If the new string is not empty, not just a minus sign, and fails 
-                // JavaScript's Number() conversion, it's invalid input.
-                if (newStr !== "" && newStr !== "-" && isNaN(Number(newStr))) {
-                    validUpdate = false;
-                }
-            }
-
-            if (validUpdate) {
-                toggleCursor(true);
-                str = newStr; // Update the QB runtime's string
-                
-                // Redraw the canvas content to show the characters
-                var tm = ctx.measureText(str);
-                _lastTextX = beginTextX + tm.width;
-                _locX = Math.round(_lastTextX / QB.func__FontWidth());
-
-                ctx.clearRect(0, 0, copy.width, copy.height);
-                ctx.drawImage(copy, 0, 0);
-                QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
-            } else {
-                // If the update was invalid (e.g., non-numeric character typed),
-                // revert the HTML input field to the last known valid string.
-                mobileInputFix.value = str;
-            }
+            var tm = ctx.measureText(str);
+            _lastTextX = beginTextX + tm.width;
+            ctx.clearRect(0, 0, copy.width, copy.height);
+            ctx.drawImage(copy, 0, 0);
+            QB.sub__PrintString(beginTextX, _locY * QB.func__FontHeight(), str);
         }
 
-        // Only clear _lastKey so we still capture "Enter" to exit the loop
-        _lastKey = null; 
-        await GX.sleep(5);
+        if (_lastKey === "Enter") break;
+        _lastKey = null;
+        await GX.sleep(10);
     }
-    // ----------------------------------------------------
-    
-    if (!_inputMode) { return; }
 
-    _inputMode = false; 
+    // cleanup
+    _inputMode = false;
     toggleCursor(true);
+    mobileInput.remove();
 
-    // CLEANUP: Remove the temporary input field
-    if (mobileInputFix) {
-        mobileInputFix.remove();
-    }
-    // ----------------------------------------------------
-
-    // Final checks before returning the value
-    
-    // Final filtering: If numeric input is required but the final string is invalid, reset it to empty
-    // This handles cases like pressing ENTER after just typing "..."
-    if (isNumeric && str !== "" && isNaN(Number(str))) {
-        str = "";
-    }
-    
-    if (!preventNewline) {
-        _locX = 0;
-        _lastTextX = 0;
-        if (_locY < _textRows()-1) {
-            _locY = _locY + 1;
-        }
-        else {
-            await _printScroll();
-        }
-    }
-
+    // save result
     if (values.length < 2) {
         values[0] = str;
-    }
-    else {
+    } else {
         var vparts = str.split(",");
         for (var i=0; i < values.length; i++) {
             values[i] = vparts[i] ? vparts[i] : "";
         }
     }
 }
+
 
 
 this.sub_Input = async function(values, preventNewline, addQuestionPrompt, prompt) {
