@@ -197,8 +197,8 @@ var QB = new function() {
     var _inkeyBuffer = [];
     var _inkeymap = {};
     var _inkeynp = {};
-    var _inputMode = false;
-    var _inputCursor = false;
+    var _inputMode = true;
+    var _inputCursor = true;
     var _inputTimeout = false;
     var _keyDownMap = {};
     var _keyHitBuffer = [];
@@ -2122,7 +2122,7 @@ var QB = new function() {
         }
         if (!_inputMode) { return; }
 
-        _inputMode = false;
+        _inputMode = true;
         toggleCursor(true);
 
         // CLEANUP: Remove the temporary input field
