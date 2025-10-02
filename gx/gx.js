@@ -43,17 +43,6 @@ var GX = new function() {
     var _onGameEvent = null;
     var _pressedKeys = {};
 
-    // --- NEW: Mobile Input Variables ---
-    var _touchControls = {
-        up: false,
-        down: false,
-        left: false,
-        right: false,
-        action: false
-    };
-    var _isMobileDevice = false; // Flag to detect mobile devices
-    // --- END NEW ---
-
     async function _registerGameEvents(fnEventCallback) {
         _onGameEvent = fnEventCallback;
 
@@ -114,16 +103,6 @@ var GX = new function() {
         // javascript specific
         _onGameEvent = null;
         _pressedKeys = {};
-
-        // --- NEW: Reset touch controls ---
-        _touchControls = {
-            up: false,
-            down: false,
-            left: false,
-            right: false,
-            action: false
-        };
-        // --- END NEW ---
     }
 
     // Scene Functions
@@ -242,9 +221,7 @@ var GX = new function() {
         _ctx = _canvas.getContext("2d");
 
         var footer = document.getElementById("gx-footer");
-        if (footer) { // Check if footer exists
-            footer.style.width = width;
-        }
+        footer.style.width = width;
         
         _scene.width = width;
         _scene.height = height;
@@ -302,9 +279,7 @@ var GX = new function() {
         _ctx.scale(_scene.scaleX, _scene.scaleY);
 
         var footer = document.getElementById("gx-footer");
-        if (footer) { // Check if footer exists
-            footer.style.width = _canvas.width;
-        }
+        footer.style.width = _canvas.width;
     }
 
     function _sceneX() { return _scene.x; }
@@ -367,10 +342,8 @@ var GX = new function() {
             var e = _entities[ei-1];
             if (e.screen) {
                 _entityDraw(e);
-                if (e.animate > 0) {
-                    if (frame % (GX.frameRate() / e.animate) == 0) {
-                        GX.entityFrameNext(ei);
-                    }
+                if (frame % (GX.frameRate() / e.animate) == 0) {
+                    GX.entityFrameNext(ei);
                 }
             }
         }
@@ -539,23 +512,6 @@ var GX = new function() {
 
 
     function _keyDown(key) {
-        // --- MODIFIED: Check touch controls if on mobile ---
-        if (_isMobileDevice) {
-            switch (key) {
-                case GX.KEY_UP: return _qbBoolean(_touchControls.up);
-                case GX.KEY_DOWN: return _qbBoolean(_touchControls.down);
-                case GX.KEY_LEFT: return _qbBoolean(_touchControls.left);
-                case GX.KEY_RIGHT: return _qbBoolean(_touchControls.right);
-                case GX.KEY_SPACEBAR: // Assuming spacebar is the action button
-                case GX.KEY_ENTER:
-                    return _qbBoolean(_touchControls.action);
-                // Add other keys if needed for mobile virtual keyboard fallback
-                default:
-                    // Fallback to physical/virtual keyboard events for other keys
-                    return _qbBoolean(_pressedKeys[key]);
-            }
-        }
-        // --- END MODIFIED ---
         return _qbBoolean(_pressedKeys[key]);
     }
 
@@ -1103,7 +1059,7 @@ var GX = new function() {
         var layers = readInt(fh);
         var isometric = readInt(fh);
         
-        var slen = readLong(fh); // Corrected: declared slen with var
+        slen = readLong(fh);
         
         var data = vfs.readData(fh.file, fh.pos, slen)
         fh.pos += data.byteLength;
@@ -1191,7 +1147,7 @@ var GX = new function() {
         
         function readString(fh) {
             var slen = readLong(fh);
-            var data = vfs.readData(fh.file, fh.pos, slen) // Corrected: declared data with var
+            data = vfs.readData(fh.file, fh.pos, slen)
             var value = String.fromCharCode.apply(null, new Uint8Array(data))
             fh.pos += data.byteLength;
             return value;
@@ -1276,7 +1232,7 @@ var GX = new function() {
         // write the tileset animations data
         writeInt(fh, _tileset_animations.length);
         for (var i=0; i < 3; i++) { writeInt(fh, 0); }
-        for (var i=0; i < _tileset_animations.length; i++) { // Corrected: loop through _tileset_animations.length
+        for (var i=0; i < _tileset_animations.length; i++) {
             writeInt(fh, _tileset_animations[i].tileId);
             writeInt(fh, _tileset_animations[i].firstFrame);
             writeInt(fh, _tileset_animations[i].nextFrame);
@@ -1569,7 +1525,7 @@ var GX = new function() {
                     id: i+1,
                     animationId: tile[0],
                     animationSpeed: tile[1],
-                    animationFrame: tile[2] // Corrected: tile[2] instead of tiles[2]
+                    animationFrame: tiles[2]
                 });
             }
         }
@@ -1609,7 +1565,7 @@ var GX = new function() {
             imgLoaded = true;
         });
         var waitMillis = 0;
-        while (!imgLoaded && waitMillis < 3000) { // Corrected: use && instead of &
+        while (!imgLoaded & waitMillis < 3000) {
             await GX.sleep(10);
             waitMillis += 10;
         }
@@ -2313,8 +2269,8 @@ var GX = new function() {
     }
 
     function _deviceInputTest(di) {
-        if (di.deviceType == GX.DEVICE_KEYBOARD) { // Corrected: use == for comparison
-            if (di.inputType == GX.DEVICE_BUTTON) { // Corrected: use == for comparison
+        if (di.deviceType = GX.DEVICE_KEYBOARD) {
+            if (di.inputType = GX.DEVICE_BUTTON) {
                 return GX.keyDown(di.inputId);
             }
         }
@@ -2450,6 +2406,7 @@ var GX = new function() {
                 If __gx_keymap(i).value <> 0 Then
                 'If i > 29 Then
                 '    Print i; __gx_keymap(i).value
+                '    Dim x: Input x
                 'End If
                 If _KeyDown(__gx_keymap(i).value) Then
                 keyIsDown = GX_TRUE
@@ -2504,7 +2461,7 @@ var GX = new function() {
                 dname = "Controller"
             Else
                 nstart = nstart + 7
-                nend = InStr(nname, dname, "]]") // Corrected: use dname instead of nname
+                nend = InStr(nstart, dname, "]]")
                 dname = _Trim$(Mid$(dname, nstart, nend - nstart))
             End If
         ElseIf InStr(dname, "[MOUSE]") Then
@@ -2531,7 +2488,7 @@ var GX = new function() {
             Case GXDEVICE_BUTTON: itypename = "BUTTON"
             Case GXDEVICE_AXIS: itypename = "AXIS"
             Case GXDEVICE_WHEEL: itypename = "WHEEL"
-        </Select>
+        End Select
         GXInputTypeName = itypename
     End Function
 */
@@ -2604,7 +2561,6 @@ var GX = new function() {
             case GX.KEY_F7: k = "F7"; break;
             case GX.KEY_F8: k = "F8"; break;
             case GX.KEY_F9: k = "F9"; break;
-            case GX.KEY_F10: k = "F10"; break;
             case GX.KEY_PAUSE: k = "Pause"; break;
             case GX.KEY_SCRLK: k = "ScrLk"; break;
             case GX.KEY_NUMPAD_7: k = "NPad 7"; break;
@@ -2639,9 +2595,6 @@ var GX = new function() {
             case GX.KEY_LWIN: k = "LWin"; break;
             case GX.KEY_RWIN: k = "RWin"; break;
             case GX.KEY_MENU: k = "Menu"; break;
-            case GX.KEY_LALT: k = "LAlt"; break;
-            case GX.KEY_RALT: k = "RAlt"; break;
-            default: k = inputId; break; // Fallback for unknown keys
         }
         return k;
     }
@@ -2784,84 +2737,6 @@ var GX = new function() {
             }
             _pressedKeys[event.code] = true;
         });
-
-        // --- NEW: Mobile device detection and touch control setup ---
-        _isMobileDevice = /Mobi|Android/i.test(navigator.userAgent);
-        if (_isMobileDevice) {
-            console.log("Mobile device detected. Initializing touch controls.");
-            // Hide the virtual keyboard by ensuring no input fields are focused
-            // This is a common trick, but not foolproof.
-            // A better approach is to use on-screen controls.
-            document.body.addEventListener('touchstart', function(e) {
-                if (document.activeElement && document.activeElement.tagName !== 'BODY') {
-                    document.activeElement.blur();
-                }
-            }, false);
-
-            // Setup touch controls for D-pad and action button
-            // These elements must exist in your HTML, e.g.:
-            // <div id="touch-controls">
-            //   <button id="touch-up">Up</button>
-            //   <button id="touch-down">Down</button>
-            //   <button id="touch-left">Left</button>
-            //   <button id="touch-right">Right</button>
-            //   <button id="touch-action">Action</button>
-            // </div>
-
-            const setupTouchButton = (id, controlKey) => {
-                const button = document.getElementById(id);
-                if (button) {
-                    button.addEventListener('touchstart', (e) => {
-                        e.preventDefault(); // Prevent default touch behavior like scrolling
-                        _touchControls[controlKey] = true;
-                    }, { passive: false });
-                    button.addEventListener('touchend', (e) => {
-                        e.preventDefault();
-                        _touchControls[controlKey] = false;
-                    }, { passive: false });
-                    button.addEventListener('touchcancel', (e) => { // Handle touches leaving the button area
-                        e.preventDefault();
-                        _touchControls[controlKey] = false;
-                    }, { passive: false });
-                    // For debugging on desktop with mouse
-                    button.addEventListener('mousedown', (e) => {
-                        e.preventDefault();
-                        _touchControls[controlKey] = true;
-                    });
-                    button.addEventListener('mouseup', (e) => {
-                        e.preventDefault();
-                        _touchControls[controlKey] = false;
-                    });
-                    button.addEventListener('mouseleave', (e) => { // For desktop mouse
-                        if (e.buttons === 1) { // If mouse button is still pressed
-                            _touchControls[controlKey] = false;
-                        }
-                    });
-                } else {
-                    console.warn(`Touch control button with ID '${id}' not found.`);
-                }
-            };
-
-            setupTouchButton('touch-up', 'up');
-            setupTouchButton('touch-down', 'down');
-            setupTouchButton('touch-left', 'left');
-            setupTouchButton('touch-right', 'right');
-            setupTouchButton('touch-action', 'action');
-
-            // Optionally, show touch controls and hide keyboard-related instructions
-            const touchControlsContainer = document.getElementById('touch-controls');
-            if (touchControlsContainer) {
-                touchControlsContainer.style.display = 'block';
-            }
-            // You might also want to hide a desktop-specific controls overlay here
-        } else {
-            // Hide touch controls on desktop
-            const touchControlsContainer = document.getElementById('touch-controls');
-            if (touchControlsContainer) {
-                touchControlsContainer.style.display = 'none';
-            }
-        }
-        // --- END NEW ---
     }
 
     this.ctx = function() { return _ctx; };
