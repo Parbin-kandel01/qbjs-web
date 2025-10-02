@@ -184,19 +184,6 @@ var GX = new function() {
                 }
             });
 
-            // --- START: Keyboard Input Fix for Mobile and Console Screen ---
-            // These listeners are added to the *document* to capture global key presses.
-            document.addEventListener("keydown", function(event) {
-                // event.preventDefault(); // Uncomment this if you want to prevent default browser actions (like scrolling)
-                _pressedKeys[event.key] = -1; // -1 is the QB-style 'true' for key pressed
-            });
-
-            document.addEventListener("keyup", function(event) {
-                // event.preventDefault(); // Uncomment this if you want to prevent default browser actions
-                _pressedKeys[event.key] = 0; // 0 is the QB-style 'false' for key released
-            });
-            // --- END: Keyboard Input Fix ---
-
             document.addEventListener("fullscreenchange", function(event) {
                 if (document.fullscreenElement) {
                     _fullscreenFlag = true;
@@ -227,6 +214,19 @@ var GX = new function() {
                     _scene.offsetY = 0;
                 }
             });
+
+            // --- START: Mobile/Console Keyboard Input Implementation ---
+            // These listeners are added to the *document* to capture global key presses.
+            document.addEventListener("keydown", function(event) {
+                // event.preventDefault(); // Uncomment this if you want to prevent default browser actions (like scrolling)
+                _pressedKeys[event.key] = -1; // -1 is the QB-style 'true' for key pressed
+            });
+
+            document.addEventListener("keyup", function(event) {
+                // event.preventDefault(); // Uncomment this if you want to prevent default browser actions
+                _pressedKeys[event.key] = 0; // 0 is the QB-style 'false' for key released
+            });
+            // --- END: Mobile/Console Keyboard Input Implementation ---
 
         }
         _canvas.width = width;
@@ -310,6 +310,13 @@ var GX = new function() {
     function _sceneDraw() {
         if (_map_loading) { return; }
         var frame = _scene.frame % GX.frameRate() + 1;
+
+        // If the screen has been resized, resize the destination screen image
+        //If _Resize And Not GXSceneEmbedded Then
+        //    '_FREEIMAGE _SOURCE
+        //    'SCREEN _NEWIMAGE(_RESIZEWIDTH, _RESIZEHEIGHT, 32)
+        //    GXSceneWindowSize _ResizeWidth, _ResizeHeight
+        //End If
 
         // Clear the background
 		_ctx.clearRect(0, 0, GX.sceneWidth(), GX.sceneHeight());
@@ -496,7 +503,7 @@ var GX = new function() {
         if (GX.tilesetWidth() < 1 || GX.tilesetHeight() < 1) { return; }
         if (GX.mapIsometric()) {
             _scene.columns = Math.floor(GX.sceneWidth() / GX.tilesetWidth());
-            _scene.rows = Math.floor(GX.sceneHeight() / (GX.tilesetWidth() / 4));
+            _scene.rows = GX.sceneHeight() / (GX.tilesetWidth() / 4);
         } else {
             _scene.columns = Math.floor(GX.sceneWidth() / GX.tilesetWidth());
             _scene.rows = Math.floor(GX.sceneHeight() / GX.tilesetHeight());
@@ -917,10 +924,10 @@ var GX = new function() {
 
     function _entityType (eid, etype) {
         if (etype != undefined) {
-        	_entities[eid-1].type = etype;
+            _entities[eid-1].type = etype;
         }
         return _entities[eid-1].type
-	}
+    }
 
     function _entityMapLayer (eid, layer) {
         if (layer != undefined) {
@@ -931,7 +938,6 @@ var GX = new function() {
 
     function _drawEntityLayer (layer) {
         var frame = _scene.frame % GX.frameRate() + 1;
-
         for (var i=0; i < _entities_active.length; i++) {
             var ei = _entities_active[i];
             var e = _entities[ei-1];
@@ -961,121 +967,10 @@ var GX = new function() {
         _entities[eid-1].coBottom = bottom;
     }
 
-    function _entityCollisionOffsetLeft (eid) {
-        return _entities[eid-1].coLeft;
-    }
-
-    function _entityCollisionOffsetTop (eid) {
-        return _entities[eid-1].coTop;
-    }
-
-    function _entityCollisionOffsetRight (eid) {
-        return _entities[eid-1].coRight;
-    }
-
-    function _entityCollisionOffsetBottom (eid) {
-        return _entities[eid-1].coBottom;
-    }
-
-    // Collision Detection (Axis-Aligned Bounding Box)
-    function _rectCollide (x1, y1, w1, h1, x2, y2, w2, h2) {
-        return (x1 < x2 + w2 &&
-                x1 + w1 > x2 &&
-                y1 < y2 + h2 &&
-                y1 + h1 > y2);
-    }
-
-    // Entity Movement and Physics
-    async function _sceneMoveEntities() {
-        var frame = _scene.frame % GX.frameRate() + 1;
-        
-        for (var i = 0; i < _entities_active.length; i++) {
-            var eid = _entities_active[i];
-            var e = _entities[eid-1];
-            
-            // 1. Apply Gravity
-            if (e.applyGravity) {
-                var dt = (GX.frame() - e.jumpstart) / GX.frameRate();
-                e.vy += _gravity * dt;
-                if (e.vy > _terminal_velocity) { e.vy = _terminal_velocity; }
-            }
-
-            // 2. Calculate new position
-            var newX = e.x + e.vx * (1 / GX.frameRate());
-            var newY = e.y + e.vy * (1 / GX.frameRate());
-            
-            // 3. Collision Checks (Simplified Axis-Aligned Bounding Box with Map)
-            
-            // Horizontal movement
-            if (e.vx != 0) {
-                var colCheckX = e.vx > 0 ? newX + e.width - e.coRight : newX + e.coLeft;
-                var colCheckY = e.y + e.coTop;
-                var colCheckHeight = e.height - e.coTop - e.coBottom;
-
-                // Check collision with map tiles
-                if (_map.columns > 0) {
-                    var blocked = false;
-                    // Check area of movement
-                    var tx = Math.floor(colCheckX / GX.tilesetWidth());
-                    var ty_start = Math.floor(colCheckY / GX.tilesetHeight());
-                    var ty_end = Math.floor((colCheckY + colCheckHeight) / GX.tilesetHeight());
-
-                    for (var row = ty_start; row <= ty_end; row++) {
-                        if (row < 0 || row >= _map.rows) continue;
-                        if (tx < 0 || tx >= _map.columns) continue;
-                        
-                        if (_mapTile(tx, row, 1) > 0) { // Assuming layer 1 is collision layer
-                            blocked = true;
-                            break;
-                        }
-                    }
-
-                    if (blocked) {
-                        e.vx = 0;
-                        newX = e.x; // Revert X movement
-                    }
-                }
-            }
-
-            // Vertical movement
-            if (e.vy != 0) {
-                var colCheckX = newX + e.coLeft;
-                var colCheckY = e.vy > 0 ? newY + e.height - e.coBottom : newY + e.coTop;
-                var colCheckWidth = e.width - e.coLeft - e.coRight;
-                
-                // Check collision with map tiles
-                if (_map.columns > 0) {
-                    var blocked = false;
-                    // Check area of movement
-                    var ty = Math.floor(colCheckY / GX.tilesetHeight());
-                    var tx_start = Math.floor(colCheckX / GX.tilesetWidth());
-                    var tx_end = Math.floor((colCheckX + colCheckWidth) / GX.tilesetWidth());
-                    
-                    for (var col = tx_start; col <= tx_end; col++) {
-                        if (col < 0 || col >= _map.columns) continue;
-                        if (ty < 0 || ty >= _map.rows) continue;
-
-                        if (_mapTile(col, ty, 1) > 0) { // Assuming layer 1 is collision layer
-                            blocked = true;
-                            // If moving down (landing), reset jump state
-                            if (e.vy > 0) { e.vy = 0; e.jumpstart = GX.frame(); }
-                            break;
-                        }
-                    }
-                    
-                    if (blocked) {
-                        e.vy = 0;
-                        newY = e.y; // Revert Y movement
-                    }
-                }
-            }
-
-            // 4. Update position
-            e.x = newX;
-            e.y = newY;
-        }
-    }
-
+    function _entityCollisionOffsetLeft (eid) { return _entities[eid-1].coLeft; }
+    function _entityCollisionOffsetTop (eid) { return _entities[eid-1].coTop; }
+    function _entityCollisionOffsetRight (eid) { return _entities[eid-1].coRight; }
+    function _entityCollisionOffsetBottom (eid) { return _entities[eid-1].coBottom; }
 
     // Map methods
     // ------------------------------------------------------------------
@@ -1085,7 +980,6 @@ var GX = new function() {
         _map.layers = layers;
         _map.version = 2;
         _map.isometric = false;
-
         var layerSize = rows * columns;
         _map_layers = [];
         for (var i=0; i < layers; i++) {
@@ -1093,8 +987,7 @@ var GX = new function() {
         }
         _map_layer_info = [];
         for (var i=0; i < layers; i++) {
-            _map_layer_info.push({
-                id: i+1, hidden: false });
+            _map_layer_info.push({ id: i+1, hidden: false });
         }
     }
 
@@ -1107,9 +1000,8 @@ var GX = new function() {
             }
             else {
                 var tmpDir = _vfs.getNode("_gxtmp", _vfs.rootDirectory());
-                if (!tmpDir) {
-                    tmpDir = _vfs.createDirectory("_gxtmp", _vfs.rootDirectory());
-                }
+                if (!tmpDir) { tmpDir = _vfs.createDirectory("_gxtmp", _vfs.rootDirectory()); }
+
                 file = _vfs.createFile(crypto.randomUUID(), tmpDir);
                 var res = await fetch(filename);
                 _vfs.writeData(file, await res.arrayBuffer());
@@ -1117,8 +1009,7 @@ var GX = new function() {
                 _vfs.removeFile(file);
                 return;
             }
-        }
-        catch (ex) {
+        } catch (ex) {
             // if the load fails try falling back to the older JSON format
             _map_loading = true;
             var data = null;
@@ -1134,9 +1025,9 @@ var GX = new function() {
             var imagePath = data.tileset.image.substring(data.tileset.image.lastIndexOf("/")+1);
             GX.tilesetCreate(parentPath + imagePath, data.tileset.width, data.tileset.height, data.tileset.tiles, data.tileset.animations);
             GX.mapCreate(data.columns, data.rows, data.layers.length);
-            if (data.isometric) {
-                GX.mapIsometric(true);
-            }
+
+            if (data.isometric) { GX.mapIsometric(true); }
+
             for (var layer=0; layer < data.layers.length; layer++) {
                 for (var row=0; row < GX.mapRows(); row++) {
                     for (var col=0; col < GX.mapColumns(); col++) {
@@ -1152,10 +1043,9 @@ var GX = new function() {
         _map_loading = true;
         var vfs = GX.vfs();
         var fh = { file: vfs.getNode(filename, vfs.rootDirectory()), pos: 0 };
+        
         var tmpDir = vfs.getNode("_gxtmp", vfs.rootDirectory());
-        if (!tmpDir) {
-            tmpDir = vfs.createDirectory("_gxtmp", vfs.rootDirectory());
-        }
+        if (!tmpDir) { tmpDir = vfs.createDirectory("_gxtmp", vfs.rootDirectory()); }
 
         var version = readInt(fh);
         var columns = readInt(fh);
@@ -1166,6 +1056,7 @@ var GX = new function() {
         slen = readLong(fh);
         var data = vfs.readData(fh.file, fh.pos, slen)
         fh.pos += data.byteLength;
+
         // write the raw data out and read it back in as a string
         var ldataFile = vfs.createFile("layer.dat", tmpDir);
         vfs.writeData(ldataFile, data);
@@ -1193,8 +1084,9 @@ var GX = new function() {
         data = vfs.readData(fh.file, fh.pos, tsSize);
         var pngFile = vfs.createFile("tileset.png", tmpDir)
         vfs.writeData(pngFile, data);
-        fh.pos += tsSize;
-        fh.pos++;
+        fh.pos += data.byteLength;
+        
+        fh.pos++; // read the blank 0th element
 
         // read the tileset tiles data
         var asize = readInt(fh);
@@ -1215,9 +1107,7 @@ var GX = new function() {
 
         GX.tilesetCreate("/_gxtmp/tileset.png", tsWidth, tsHeight, tiles, animations);
         GX.mapCreate(columns, rows, layers);
-        if (isometric) {
-            GX.mapIsometric(true);
-        }
+        if (isometric) { GX.mapIsometric(true); }
 
         var li = 0
         for (var l=0; l <= GX.mapLayers(); l++) {
@@ -1231,7 +1121,7 @@ var GX = new function() {
                 }
             }
         }
-
+        
         function readInt(fh) {
             var data = vfs.readData(fh.file, fh.pos, 2);
             var value = (new DataView(data)).getInt16(0, true);
@@ -1253,7 +1143,7 @@ var GX = new function() {
             fh.pos += data.byteLength;
             return value;
         }
-        
+
         _map_loading = false;
     }
 
@@ -1268,20 +1158,16 @@ var GX = new function() {
         for (var i=0; i < dirs.length; i++) {
             if (dirs[i] == "") { continue; }
             var p = vfs.getNode(dirs[i], parentDir);
-            if (!p) {
-                p = vfs.getNode(dirs[i], parentDir);
-            }
+            if (!p) { p = vfs.getNode(dirs[i], parentDir); }
             parentDir = p;
         }
 
         var tmpDir = vfs.getNode("_gxtmp", vfs.rootDirectory());
-        if (!tmpDir) {
-            tmpDir = vfs.createDirectory("_gxtmp", vfs.rootDirectory());
-        }
+        if (!tmpDir) { tmpDir = vfs.createDirectory("_gxtmp", vfs.rootDirectory()); }
 
         var file = vfs.createFile(filename, parentDir);
         var fh = { file: file, pos: 0 };
-
+        
         writeInt(fh, 2); // version
         writeInt(fh, GX.mapColumns());
         writeInt(fh, GX.mapRows());
@@ -1291,262 +1177,666 @@ var GX = new function() {
         var size = (GX.mapLayers() + 1) * GX.mapColumns() * GX.mapRows() + GX.mapLayers();
         var ldata = new ArrayBuffer(size * 2 + 4);
         var dview = new DataView(ldata);
-        var li = GX.mapColumns() * GX.mapRows() * 2 + 1;
 
+        var li = GX.mapColumns() * GX.mapRows() * 2 + 1;
         for (var l=1; l <= GX.mapLayers(); l++) {
             if (l > 1) { li+=2; }
             for (var row=0; row < GX.mapRows(); row++) {
                 for (var col=0; col < GX.mapColumns(); col++) {
-                    if (l == 0) {
-                        dview.setInt16(li+1, 0, true);
-                    }
-                    else {
-                        dview.setInt16(li+1, GX.mapTile(col, row, l), true);
-                    }
+                    if (l == 0) { dview.setInt16(li+1, 0, true); }
+                    else { dview.setInt16(li+1, GX.mapTile(col, row, l), true); }
                     li+=2;
                 }
             }
         }
 
         var cdata = pako.deflate(ldata);
+
         writeLong(fh, cdata.byteLength);
         vfs.writeData(fh.file, cdata, fh.pos);
         fh.pos += cdata.byteLength;
-
+        
         // write the tileset data
-        writeInt(fh, 2); // version
-        writeString(fh, "tileset.gxi");
+        writeInt(fh, 1); // version
+        writeString(fh, "tileset.png");
         writeInt(fh, GX.tilesetWidth());
         writeInt(fh, GX.tilesetHeight());
+        
+        var pngFile = vfs.getNode("/_gxtmp/tileset.png", vfs.rootDirectory());
+        writeLong(fh, pngFile.data.byteLength);
+        var data = vfs.readData(pngFile, 0, pngFile.data.byteLength)
+        vfs.writeData(fh.file, data, fh.pos);
+        fh.pos += data.byteLength;
 
-        // write the tileset png data
-        var tsfile = vfs.getNode(_tileset.filename);
-        writeLong(fh, tsfile.data.byteLength);
-        vfs.writeData(fh.file, tsfile.data, fh.pos);
-        fh.pos += tsfile.data.byteLength;
-        fh.pos++;
+        fh.pos++; // skip the 0th element
 
         // write the tileset tiles data
-        writeInt(fh, _tileset_tiles.length);
-        for (var i=0; i < 4; i++) { writeInt(fh, 0); }
-        for (var i=0; i < _tileset_tiles.length; i++) {
-            writeInt(fh, 0);//i+1);
-            writeInt(fh, _tileset_tiles[i].animationId);
-            writeInt(fh, _tileset_tiles[i].animationSpeed);
-            writeInt(fh, _tileset_tiles[i].animationFrame);
+        var tiles = GX.tilesetTiles();
+        writeInt(fh, tiles.length-1);
+        writeInt(fh, 0); // blank 0th element
+        writeInt(fh, 0);
+        writeInt(fh, 0);
+        writeInt(fh, 0);
+
+        for (var i=1; i < tiles.length; i++) {
+            writeInt(fh, i); // id (not used)
+            writeInt(fh, tiles[i][0]);
+            writeInt(fh, tiles[i][1]);
+            writeInt(fh, tiles[i][2]);
         }
 
         // write the tileset animations data
-        writeInt(fh, _tileset_animations.length);
-        for (var i=0; i < 3; i++) { writeInt(fh, 0); }
-        for (var i=0; i < _tileset_animations.length; i++) {
-            writeInt(fh, _tileset_animations[i].tileId);
-            writeInt(fh, _tileset_animations[i].firstFrame);
-            writeInt(fh, _tileset_animations[i].nextFrame);
+        var animations = GX.tilesetAnimations();
+        writeInt(fh, animations.length-1);
+        writeInt(fh, 0);
+        writeInt(fh, 0);
+        writeInt(fh, 0);
+        
+        for (var i=1; i < animations.length; i++) {
+            writeInt(fh, animations[i][0]);
+            writeInt(fh, animations[i][1]);
+            writeInt(fh, animations[i][2]);
         }
 
         function writeInt(fh, value) {
-            var data = new Int16Array([value]).buffer;
-            vfs.writeData(fh.file, data, fh.pos);
-            fh.pos = fh.pos + data.byteLength
+            var buf = new ArrayBuffer(2);
+            (new DataView(buf)).setInt16(0, value, true);
+            vfs.writeData(fh.file, buf, fh.pos);
+            fh.pos += buf.byteLength;
         }
 
         function writeLong(fh, value) {
-            var data = new Int32Array([value]).buffer;
-            vfs.writeData(fh.file, data, fh.pos);
-            fh.pos = fh.pos + data.byteLength
+            var buf = new ArrayBuffer(4);
+            (new DataView(buf)).setInt32(0, value, true);
+            vfs.writeData(fh.file, buf, fh.pos);
+            fh.pos += buf.byteLength;
         }
 
         function writeString(fh, value) {
-            var slen = value.length;
-            writeLong(fh, slen);
-            var data = vfs.textToData(value);
-            vfs.writeData(fh.file, data, fh.pos);
-            fh.pos = fh.pos + data.byteLength
+            writeLong(fh, value.length);
+            var buf = new ArrayBuffer(value.length);
+            for (var i=0; i < value.length; i++) {
+                (new DataView(buf)).setUint8(i, value.charCodeAt(i));
+            }
+            vfs.writeData(fh.file, buf, fh.pos);
+            fh.pos += buf.byteLength;
         }
+
     }
 
-    function _getJSON(url) {
-        return fetch(url)
-            .then((response)=>response.json())
-            .then((responseJson)=>{return responseJson});
-    }
-
-    function _mapLayerInit(cols, rows) {
-        if (cols == undefined) { cols = _map.columns; }
-        if (rows == undefined) { rows = _map.rows; }
-
-        var layerSize = rows * cols;
-        var layerData = [];
+    function _mapLayerInit() {
+        var layer = [];
+        var layerSize = GX.mapRows() * GX.mapColumns();
         for (var i=0; i < layerSize; i++) {
-            layerData.push({ tile: 0});
+            layer.push(0);
         }
-        return layerData;
+        return layer;
     }
 
-    function _mapColumns() { return _map.columns; }
-    function _mapRows() { return _map.rows; }
-    function _mapLayers() { return _map.layers; }
-
-    function _mapLayerVisible(layer, visible) {
-        if (visible != undefined) {
-            _map_layer_info[layer-1].hidden = !visible;
+    function _mapLayerClear(layer) {
+        var layerSize = GX.mapRows() * GX.mapColumns();
+        for (var i=0; i < layerSize; i++) {
+            _map_layers[layer-1][i] = 0;
         }
-        return _qbBoolean(!_map_layer_info[layer-1].hidden);
     }
 
-    function _mapIsometric(iso) {
-        if (iso != undefined) {
-            _map.isometric = iso;
-            _updateSceneSize();
+    function _mapDraw() {
+        for (var l=0; l < _map_layers.length; l++) {
+            _mapDrawLayer(l);
         }
-        return _qbBoolean(_map.isometric);
     }
 
-    function _mapLayerAdd() {
-        _map.layers++;
-        _map_layer_info.push({ id: _map.layers, hidden: false });
-        _map_layers.push(_mapLayerInit());
-    }
+    function _mapDrawLayer(layer) {
+        var tile, tilePos, tileWidth, tileHeight, x, y, frame;
+        var tsw, tsh;
+        var rStart, rEnd, cStart, cEnd;
+        var xOffset, yOffset;
 
-    function _mapLayerInsert (beforeLayer) {
-        if (beforeLayer < 1 || beforeLayer > GX.mapLayers()) { return; }
-
-        GX.mapLayerAdd(); // Increases layer count, adds an empty layer at the end.
-
-        // Shift existing layers up by one index
-        for (var layer = GX.mapLayers(); layer > beforeLayer; layer--) {
-            _map_layers[layer - 1] = _map_layers[layer - 2];
-            _map_layer_info[layer - 1] = _map_layer_info[layer - 2];
-        }
+        if (_map_layer_info[layer].hidden) { return; }
         
-        // Insert a new empty layer at the target position
-        _map_layers[beforeLayer - 1] = _mapLayerInit();
-        _map_layer_info[beforeLayer - 1] = { id: beforeLayer, hidden: false };
-    }
+        frame = _scene.frame % GX.frameRate() + 1;
+        tsw = GX.tilesetWidth();
+        tsh = GX.tilesetHeight();
+        if (tsw < 1 || tsh < 1) { return; }
 
-    function _mapTile (col, row, layer, tile) {
-        if (tile != undefined) {
-            _map_layers[layer-1][row * _map.columns + col].tile = tile;
-        }
-        return _map_layers[layer-1][row * _map.columns + col].tile;
-    }
+        rStart = Math.max(0, Math.floor(GX.sceneY() / tsh));
+        rEnd = Math.min(GX.mapRows(), rStart + GX.sceneRows() + 1);
 
-    function _mapDraw () {
-        var frame = _scene.frame % GX.frameRate() + 1;
-        var tw = GX.tilesetWidth();
-        var th = GX.tilesetHeight();
-        
-        var startCol = Math.floor(GX.sceneX() / tw);
-        var endCol = startCol + GX.sceneColumns() + 1;
-        if (endCol > GX.mapColumns()) { endCol = GX.mapColumns(); }
-        if (startCol < 0) { startCol = 0; }
+        cStart = Math.max(0, Math.floor(GX.sceneX() / tsw));
+        cEnd = Math.min(GX.mapColumns(), cStart + GX.sceneColumns() + 1);
 
-        var startRow = Math.floor(GX.sceneY() / th);
-        var endRow = startRow + GX.sceneRows() + 1;
-        if (endRow > GX.mapRows()) { endRow = GX.mapRows(); }
-        if (startRow < 0) { startRow = 0; }
+        for (var r=rStart; r < rEnd; r++) {
+            for (var c=cStart; c < cEnd; c++) {
+                tile = _mapTile(c, r, layer+1);
 
-        for (var layer=1; layer <= GX.mapLayers(); layer++) {
-            if (GX.mapLayerVisible(layer)) {
+                if (tile == 0) { continue; }
+
+                tilePos = GX.tilesetTile(tile);
+                tileWidth = tilePos[1];
+                tileHeight = tilePos[2];
+                xOffset = GX.sceneX() % tsw;
+                yOffset = GX.sceneY() % tsh;
+
+                x = c * tsw - GX.sceneX();
+                y = r * tsh - GX.sceneY();
+
+                GX.tilesetDraw(tile, x, y, tileWidth, tileHeight);
                 
-                // Draw all entities associated with this layer (before drawing the layer)
-                _drawEntityLayer(layer);
-
-                for (var row = startRow; row < endRow; row++) {
-                    for (var col = startCol; col < endCol; col++) {
-                        var tileId = GX.mapTile(col, row, layer);
-                        if (tileId > 0) {
-                            var tile = _tileset_tiles[tileId - 1];
-                            var anim = _tileset_animations[tile.animationId - 1];
-
-                            var tframe = tile.animationFrame;
-                            if (tile.animationSpeed > 0 && frame % (GX.frameRate() / tile.animationSpeed) == 0) {
-                                tframe = anim.nextFrame;
-                                tile.animationFrame = tframe;
-                            }
-                            
-                            var x = col * tw - GX.sceneX();
-                            var y = row * th - GX.sceneY();
-                            
-                            GX.spriteDraw(GX.tilesetImage(), x, y, anim.tileId, tframe, tw, th);
-                        }
+                if (GX.tilesetAnimate(tile) > 0) {
+                    if (frame % (GX.frameRate() / GX.tilesetAnimate(tile)) == 0) {
+                        GX.tilesetFrameNext(tile);
                     }
                 }
             }
         }
     }
 
-
-    // Tileset Functions
-    // ------------------------------------------------------------------
-    function _tilesetCreate (imageFilename, width, height, tiles, animations) {
-        _tileset.filename = imageFilename;
-        _tileset.image = _imageLoad(imageFilename);
-        _tileset.width = width;
-        _tileset.height = height;
-
-        _tileset_tiles = [];
-        for (var i = 0; i < tiles.length; i++) {
-            _tileset_tiles.push({
-                animationId: tiles[i][0],
-                animationSpeed: tiles[i][1],
-                animationFrame: tiles[i][2]
-            });
+    function _mapIsometric (isometric) {
+        if (isometric != undefined) {
+            _map.isometric = isometric;
+            _updateSceneSize();
         }
-        
-        _tileset_animations = [];
-        for (var i = 0; i < animations.length; i++) {
-            _tileset_animations.push({
-                tileId: animations[i][0],
-                firstFrame: animations[i][1],
-                nextFrame: animations[i][2]
-            });
+        return _qbBoolean(_map.isometric);
+    }
+
+    function _mapTile (c, r, l, tile) {
+        if (r < 0 || r >= GX.mapRows()) { return 0; }
+        if (c < 0 || c >= GX.mapColumns()) { return 0; }
+        var index = r * GX.mapColumns() + c;
+        if (tile != undefined) {
+            _map_layers[l-1][index] = tile;
+        }
+        return _map_layers[l-1][index];
+    }
+
+    function _mapLayers() { return _map.layers; }
+    function _mapRows() { return _map.rows; }
+    function _mapColumns() { return _map.columns; }
+
+    function _mapLayerHidden(layer, hidden) {
+        if (hidden != undefined) {
+            _map_layer_info[layer-1].hidden = hidden;
+        }
+        return _qbBoolean(_map_layer_info[layer-1].hidden);
+    }
+
+
+    // Tileset methods
+    // ------------------------------------------------------------------
+    function _tilesetCreate (imageFilename, tsw, tsh, tiles, animations) {
+        _tileset.image = _imageLoad(imageFilename);
+        _tileset.width = tsw;
+        _tileset.height = tsh;
+        _tileset.seq = 1;
+        _tileset_tiles = [[0, 0, 0]];
+        _tileset_animations = [[0, 0, 0]];
+        _tileset.frame = new Array(tiles.length).fill(1);
+        _tileset.prevFrame = new Array(tiles.length).fill(1);
+
+        if (tiles) {
+            _tileset_tiles = _tileset_tiles.concat(tiles);
+        }
+        if (animations) {
+            _tileset_animations = _tileset_animations.concat(animations);
         }
         _updateSceneSize();
+        _tileset.frames = new Array(_tileset_tiles.length).fill(1);
     }
 
+    function _tilesetDraw(t, x, y, swidth, sheight) {
+        var tile = _tilesetTile(t);
+        var tileFrame = GX.tilesetFrame(t);
+        var xoffset = (tileFrame - 1) * GX.tilesetWidth();
+        var yoffset = (tile[0] - 1) * GX.tilesetHeight();
+        
+        _ctx.drawImage(_image(_tileset.image), xoffset, yoffset, tile[1], tile[2], x, y, swidth, sheight);
+    }
+
+    function _tilesetAnimate (tile) {
+        return _tileset_animations[tile][1];
+    }
+
+    function _tilesetFrameNext (tile) {
+        if (GX.tilesetAnimate(tile) == 0) { return; }
+        var frames = GX.tilesetFrames(tile);
+
+        if (_tileset.frame[tile] == frames) {
+            _tileset.frame[tile] = 1;
+        } else {
+            _tileset.frame[tile]++;
+        }
+    }
+
+    function _tilesetFrames (tile) {
+        return _tileset_animations[tile][0];
+    }
+
+    function _tilesetFrame (tile) {
+        return _tileset.frame[tile];
+    }
+
+    function _tilesetTile(t) { return _tileset_tiles[t]; }
     function _tilesetWidth() { return _tileset.width; }
     function _tilesetHeight() { return _tileset.height; }
-    function _tilesetImage() { return _tileset.image; }
 
 
-    // Utility Functions
-    // ------------------------------------------------------------------
-    function _sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    // Collision Methods
+    // ---------------------------------------------------------------------------------
+    function _mapTileCollide(x, y, layer, collidable) {
+        if (GX.tilesetWidth() < 1 || GX.tilesetHeight() < 1) { return 0; }
+        var c = Math.floor(x / GX.tilesetWidth());
+        var r = Math.floor(y / GX.tilesetHeight());
+        var tile = GX.mapTile(c, r, layer);
+        if (tile > 0) {
+            var tileCollide = GX.tilesetTile(tile)[0];
+            if (collidable != undefined) {
+                return _qbBoolean(tileCollide == collidable);
+            }
+            return tileCollide;
+        }
+        return 0;
     }
 
-    function _debug(enabled) {
+    function _entityEntityCollide(eid1, eid2) {
+        var e1 = _entities[eid1-1];
+        var e2 = _entities[eid2-1];
+
+        return _qbBoolean(_rectCollide(e1.x + e1.coLeft, e1.y + e1.coTop, 
+                            e1.width - e1.coLeft - e1.coRight, e1.height - e1.coTop - e1.coBottom, 
+                            e2.x + e2.coLeft, e2.y + e2.coTop, 
+                            e2.width - e2.coLeft - e2.coRight, e2.height - e2.coTop - e2.coBottom));
+    }
+
+    function _rectCollide(x1, y1, w1, h1, x2, y2, w2, h2) {
+        return (x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2);
+    }
+
+    function _mapEntityCollide(eid, layer, collidable) {
+        var e = _entities[eid-1];
+        var x = e.x;
+        var y = e.y;
+        var w = e.width;
+        var h = e.height;
+        var tsw = GX.tilesetWidth();
+        var tsh = GX.tilesetHeight();
+        var c = Math.floor(x / tsw);
+        var r = Math.floor(y / tsh);
+
+        // top left
+        if (GX.mapTileCollide(x + e.coLeft, y + e.coTop, layer, collidable)) { return -1; }
+        // top right
+        if (GX.mapTileCollide(x + w - e.coRight - 1, y + e.coTop, layer, collidable)) { return -1; }
+        // bottom left
+        if (GX.mapTileCollide(x + e.coLeft, y + h - e.coBottom - 1, layer, collidable)) { return -1; }
+        // bottom right
+        if (GX.mapTileCollide(x + w - e.coRight - 1, y + h - e.coBottom - 1, layer, collidable)) { return -1; }
+
+        return 0;
+    }
+
+    function _mapEntityCheckCollide(e, layer, collidable) {
+        var x = e.x;
+        var y = e.y;
+        var w = e.width;
+        var h = e.height;
+        var tsw = GX.tilesetWidth();
+        var tsh = GX.tilesetHeight();
+        
+        // top left
+        if (GX.mapTileCollide(x + e.coLeft, y + e.coTop, layer, collidable)) { return -1; }
+        // top right
+        if (GX.mapTileCollide(x + w - e.coRight - 1, y + e.coTop, layer, collidable)) { return -1; }
+        // bottom left
+        if (GX.mapTileCollide(x + e.coLeft, y + h - e.coBottom - 1, layer, collidable)) { return -1; }
+        // bottom right
+        if (GX.mapTileCollide(x + w - e.coRight - 1, y + h - e.coBottom - 1, layer, collidable)) { return -1; }
+
+        return 0;
+    }
+
+    function _mapTileIndex(eid, layer, collidable) {
+        var e = _entities[eid-1];
+        var x = e.x;
+        var y = e.y;
+        var w = e.width;
+        var h = e.height;
+        var tsw = GX.tilesetWidth();
+        var tsh = GX.tilesetHeight();
+        
+        var tile = GX.mapTileCollide(x + e.coLeft, y + e.coTop, layer);
+        if (tile > 0) { return tile; }
+        tile = GX.mapTileCollide(x + w - e.coRight - 1, y + e.coTop, layer);
+        if (tile > 0) { return tile; }
+        tile = GX.mapTileCollide(x + e.coLeft, y + h - e.coBottom - 1, layer);
+        if (tile > 0) { return tile; }
+        tile = GX.mapTileCollide(x + w - e.coRight - 1, y + h - e.coBottom - 1, layer);
+        if (tile > 0) { return tile; }
+        
+        return 0;
+    }
+
+    async function _sceneMoveEntities() {
+        var dt = 1 / GX.frameRate();
+        var dx, dy, x, y, step;
+
+        for (var i=0; i < _entities_active.length; i++) {
+            var eid = _entities_active[i];
+            var e = _entities[eid-1];
+            if (e.screen || e.vx == 0 && e.vy == 0 && e.applyGravity == false) { continue; }
+
+            if (e.applyGravity) {
+                e.vy += GX.gravity() * dt;
+                if (e.vy > GX.terminalVelocity()) { e.vy = GX.terminalVelocity(); }
+            }
+
+            dx = e.vx * dt;
+            dy = e.vy * dt;
+
+            // X-Axis movement (steps)
+            step = Math.round(Math.abs(dx));
+            for (var j=0; j < step; j++) {
+                x = e.x;
+                if (dx > 0) {
+                    e.x++;
+                } else {
+                    e.x--;
+                }
+                
+                if (e.type) {
+                    var ent = {};
+                    ent.x = e.x;
+                    ent.y = e.y;
+                    ent.width = e.width;
+                    ent.height = e.height;
+                    ent.coLeft = e.coLeft;
+                    ent.coTop = e.coTop;
+                    ent.coRight = e.coRight;
+                    ent.coBottom = e.coBottom;
+
+                    var event = {
+                        event: GX.EVENT_COLLIDE_MAP_MOVE,
+                        entity: eid,
+                        x: x,
+                        y: e.y,
+                        dx: e.vx,
+                        dy: e.vy
+                    }
+
+                    _onGameEvent(event);
+
+                    if (event.cancelled) {
+                        e.x = event.x;
+                        e.vx = event.dx;
+                        e.vy = event.dy;
+                    }
+                }
+                
+                if (_mapEntityCheckCollide(e, 1, 1)) {
+                    e.x = x;
+                    e.vx = 0;
+                    var event = {};
+                    event.event = GX.EVENT_COLLIDE_MAP_X;
+                    event.entity = eid;
+                    _onGameEvent(event);
+                    break;
+                }
+            }
+            e.x = e.x + (dx % 1);
+            
+            // Y-Axis movement (steps)
+            step = Math.round(Math.abs(dy));
+            for (var j=0; j < step; j++) {
+                y = e.y;
+                if (dy > 0) {
+                    e.y++;
+                } else {
+                    e.y--;
+                }
+                
+                if (e.type) {
+                    var ent = {};
+                    ent.x = e.x;
+                    ent.y = e.y;
+                    ent.width = e.width;
+                    ent.height = e.height;
+                    ent.coLeft = e.coLeft;
+                    ent.coTop = e.coTop;
+                    ent.coRight = e.coRight;
+                    ent.coBottom = e.coBottom;
+                    
+                    var event = {
+                        event: GX.EVENT_COLLIDE_MAP_MOVE,
+                        entity: eid,
+                        x: e.x,
+                        y: y,
+                        dx: e.vx,
+                        dy: e.vy
+                    }
+
+                    _onGameEvent(event);
+
+                    if (event.cancelled) {
+                        e.x = event.x;
+                        e.vx = event.dx;
+                        e.vy = event.dy;
+                    }
+                }
+
+                if (_mapEntityCheckCollide(e, 1, 1)) {
+                    e.y = y;
+                    if (e.vy > 0) {
+                        if (e.jumpstart < GX.frame()) {
+                            // landing
+                            var event = {};
+                            event.event = GX.EVENT_COLLIDE_MAP_Y_DOWN;
+                            event.entity = eid;
+                            _onGameEvent(event);
+                        }
+                    } else {
+                        // hitting ceiling
+                        var event = {};
+                        event.event = GX.EVENT_COLLIDE_MAP_Y_UP;
+                        event.entity = eid;
+                        _onGameEvent(event);
+                    }
+                    e.vy = 0;
+                    break;
+                }
+            }
+            e.y = e.y + (dy % 1);
+        }
+    }
+
+    // Drawing Methods
+    // ---------------------------------------------------------------------------------
+    function _drawPoint (x, y, r, g, b, a) {
+        _ctx.beginPath();
+        _ctx.arc(x, y, 1, 0, 2 * Math.PI, false);
+        _ctx.fillStyle = "rgba(" + r + "," + g + "," + b + "," + (a / 255) + ")";
+        _ctx.fill();
+    }
+
+    function _drawCircle (x, y, radius, r, g, b, a) {
+        _ctx.beginPath();
+        _ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+        _ctx.fillStyle = "rgba(" + r + "," + g + "," + b + "," + (a / 255) + ")";
+        _ctx.fill();
+    }
+
+    function _drawLine (x1, y1, x2, y2, r, g, b, a) {
+        _ctx.strokeStyle = "rgba(" + r + "," + g + "," + b + "," + (a / 255) + ")";
+        _ctx.beginPath();
+        _ctx.moveTo(x1, y1);
+        _ctx.lineTo(x2, y2);
+        _ctx.stroke();
+    }
+
+    function _drawRect (x, y, w, h, r, g, b, a) {
+        _ctx.fillStyle = "rgba(" + r + "," + g + "," + b + "," + (a / 255) + ")";
+        _ctx.fillRect(x, y, w, h);
+    }
+    
+    function _drawEllipse (x, y, w, h, r, g, b, a) {
+        _ctx.fillStyle = "rgba(" + r + "," + g + "," + b + "," + (a / 255) + ")";
+        _ctx.beginPath();
+        _ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, 2 * Math.PI);
+        _ctx.fill();
+    }
+
+    // Font Methods
+    // ---------------------------------------------------------------------------------
+    function _fontLoad (filename, tsw, tsh, charmap) {
+        var font = __newFont();
+        font.eid = _screenEntityCreate(filename, tsw, tsh, 1);
+        _fonts.push(font);
+
+        if (charmap) {
+            var charmap_arr = new Array(256).fill({x:0,y:0});
+            var i, x, y;
+            for (var c=0; c < 256; c++) {
+                i = charmap[c];
+                if (i) {
+                    x = (i - 1) % (_images[_entities[font.eid-1].image-1].width / tsw);
+                    y = Math.floor((i - 1) / (_images[_entities[font.eid-1].image-1].width / tsw));
+                    charmap_arr[c] = {x: x + 1, y: y + 1};
+                }
+            }
+            _font_charmap.push(charmap_arr);
+        }
+        
+        return _fonts.length;
+    }
+
+    function _fontCreateDefault(fid) {
+        _fonts[fid-1].eid = 
+            _screenEntityCreate("/_gxtmp/font_default.png", 8, 8, 1);
+        
+        var charmap = new Array(256);
+        for (var i=0; i < 256; i++) {
+            charmap[i] = i+1;
+        }
+
+        var charmap_arr = new Array(256).fill({x:0,y:0});
+        var i, x, y;
+        var tsw = 8;
+        for (var c=0; c < 256; c++) {
+            i = charmap[c];
+            if (i) {
+                x = (i - 1) % 32;
+                y = Math.floor((i - 1) / 32);
+                charmap_arr[c] = {x: x + 1, y: y + 1};
+            }
+        }
+        _font_charmap[fid-1] = charmap_arr;
+    }
+
+    function _fontCharSpacing (fid, charSpacing) {
+        if (charSpacing != undefined) {
+            _fonts[fid-1].charSpacing = charSpacing;
+        }
+        return _fonts[fid-1].charSpacing;
+    }
+
+    function _fontLineSpacing (fid, lineSpacing) {
+        if (lineSpacing != undefined) {
+            _fonts[fid-1].lineSpacing = lineSpacing;
+        }
+        return _fonts[fid-1].lineSpacing;
+    }
+
+    function _fontDraw (fid, x, y, text) {
+        var ent = _entities[_fonts[fid-1].eid-1];
+        var char, charPos, lines, lineH;
+        var tsw = ent.width;
+        var tsh = ent.height;
+        var offsetX = 0;
+
+        lines = text.split("\n");
+        lineH = tsh + _fonts[fid-1].lineSpacing;
+
+        for (var l=0; l < lines.length; l++) {
+            offsetX = 0;
+            for (var i=0; i < lines[l].length; i++) {
+                char = lines[l].charCodeAt(i);
+                charPos = _font_charmap[fid-1][char];
+
+                if (charPos.x > 0) {
+                    GX.spriteDraw(ent.image, x + offsetX, y + lineH * l, charPos.y, charPos.x, tsw, tsh);
+                }
+                offsetX += tsw + _fonts[fid-1].charSpacing;
+            }
+        }
+    }
+
+    // Debugging methods
+    // ---------------------------------------------------------------------------------
+    function _debug (enabled) {
         if (enabled != undefined) {
             __debug.enabled = enabled;
         }
         return _qbBoolean(__debug.enabled);
     }
 
-    function _debugFont(fid) {
+    function _debugFont (fid) {
         if (fid != undefined) {
             __debug.font = fid;
         }
         return __debug.font;
     }
-
+    
     function _debugFrameRate() {
-        // Placeholder for simple frame rate drawing logic
-    }
-
-    // Font functions
-    function _fontCreateDefault (fid) {
-        // Placeholder for creating default font structure
-    }
-
-    function _print(text, x, y, fid) {
-        // Placeholder for text drawing logic
+        var ent = _entities[_fonts[__debug.font-1].eid-1];
+        var text = GX.frameRate() + " FPS";
+        var x = GX.sceneWidth() - (text.length * (ent.width + _fonts[__debug.font-1].charSpacing)) - 4;
+        _fontDraw(__debug.font, x, 4, text);
     }
 
 
-    // Public API Constants
-    // ------------------------------------------------------------------
+    // Virtual File System methods
+    // ---------------------------------------------------------------------------------
+    function _vfs() { return _vfs; }
+    function _vfsCwd() { return _vfsCwd; }
+    function _vfsCd(path) {
+        var node = _vfs.getNode(path, _vfsCwd);
+        if (node) {
+            _vfsCwd = node;
+            return -1;
+        }
+        return 0;
+    }
+    function _vfsLs(path) {
+        var node = _vfs.getNode(path, _vfsCwd);
+        if (node) {
+            var items = "";
+            for (var i=0; i < node.children.length; i++) {
+                items += _vfs.fullPath(node.children[i]) + "\r\n";
+            }
+            return items;
+        }
+        return "";
+    }
+
+
+    // Global objects
+    // ---------------------------------------------------------------------------------
+    this.EVENT_INIT = 1;
+    this.EVENT_UPDATE = 2;
+    this.EVENT_DRAWBG = 3;
+    this.EVENT_DRAWMAP = 4;
+    this.EVENT_DRAWSCREEN = 5;
+    this.EVENT_PAINTBEFORE = 6;
+    this.EVENT_PAINTAFTER = 7;
+    this.EVENT_COLLIDE_MAP_X = 8;
+    this.EVENT_COLLIDE_MAP_Y_UP = 9;
+    this.EVENT_COLLIDE_MAP_Y_DOWN = 10;
+    this.EVENT_COLLIDE_ENTITY = 11;
+    this.EVENT_ANIMATE_COMPLETE = 12;
+    this.EVENT_COLLIDE_MAP_MOVE = 13;
+
+    this.BG_STRETCH = 1;
+    this.BG_SCROLL = 2;
+    this.BG_WRAP = 3;
+
     this.SCENE_FOLLOW_NONE = 0;
     this.SCENE_FOLLOW_ENTITY_CENTER = 1;
     this.SCENE_FOLLOW_ENTITY_CENTER_X = 2;
@@ -1556,65 +1846,84 @@ var GX = new function() {
 
     this.SCENE_CONSTRAIN_NONE = 0;
     this.SCENE_CONSTRAIN_TO_MAP = 1;
-    
-    this.EVENT_INIT = 1;
-    this.EVENT_UPDATE = 2;
-    this.EVENT_DRAWBG = 3;
-    this.EVENT_DRAWMAP = 4;
-    this.EVENT_DRAWSCREEN = 5;
-    this.EVENT_PAINTBEFORE = 6;
-    this.EVENT_PAINTAFTER = 7;
-    this.EVENT_ANIMATE_COMPLETE = 8;
-    
-    this.BG_STRETCH = 0;
-    this.BG_SCROLL = 1;
-    this.BG_WRAP = 2;
+
+    this.ANIMATE_LOOP = 1;
+    this.ANIMATE_SINGLE = 2;
+
+    this.COLLIDE_NONE = 0;
+    this.COLLIDE_SOLID = 1;
+    this.COLLIDE_SLOPE = 2;
 
     this.FONT_DEFAULT = 1;
     this.FONT_DEFAULT_BLACK = 2;
 
-    this.ANIMATE_LOOP = 0;
-    this.ANIMATE_SINGLE = 1;
 
-
-    // Public API Methods
+    // Scene methods
     // ------------------------------------------------------------------
-    this.reset = _reset;
-    this.registerGameEvents = _registerGameEvents;
-
-    // Scene
     this.sceneCreate = _sceneCreate;
-    this.sceneStart = _sceneStart;
-    this.sceneStop = _sceneStop;
-    this.sceneDraw = _sceneDraw;
-    this.sceneUpdate = _sceneUpdate;
     this.sceneResize = _sceneResize;
     this.sceneScale = _sceneScale;
+    this.sceneDraw = _sceneDraw;
+    this.sceneUpdate = _sceneUpdate;
+    this.sceneStart = _sceneStart;
+    this.sceneStop = _sceneStop;
+    this.sceneFollowEntity = _sceneFollowEntity;
+    this.sceneConstrain = _sceneConstrain;
     this.sceneMove = _sceneMove;
     this.scenePos = _scenePos;
+
     this.sceneX = _sceneX;
     this.sceneY = _sceneY;
     this.sceneWidth = _sceneWidth;
     this.sceneHeight = _sceneHeight;
     this.sceneColumns = _sceneColumns;
     this.sceneRows = _sceneRows;
-    this.sceneFollowEntity = _sceneFollowEntity;
-    this.sceneConstrain = _sceneConstrain;
 
-    // Frame
+    // Game loop methods
+    // ------------------------------------------------------------------
+    this.registerGameEvents = _registerGameEvents;
+    this.resourcesLoaded = _resourcesLoaded;
+    this.reset = _reset;
+
+    // Frame methods
+    // ------------------------------------------------------------------
     this.frameRate = _frameRate;
     this.frame = _frame;
-    
-    // Image
+
+    // Input methods
+    // ------------------------------------------------------------------
+    this.keyDown = _keyDown;
+    this.mouseButton = function(btn) { return _mouseButtons[btn-1]; }
+    this.mouseWheel = function() {
+        var w = _mouseWheelFlag;
+        _mouseWheelFlag = 0;
+        return w;
+    }
+    this.mouseInputFlag = function() { return _mouseInputFlag; }
+    this.mousePos = function() { return _mousePos; }
+    this.touchInputFlag = function() { return _touchInputFlag; }
+    this.touchPos = function() { return _touchPos; }
+    this.bindTouchToMouse = function(bind) {
+        if (bind != undefined) { _bindTouchToMouse = bind; }
+        return _bindTouchToMouse;
+    }
+
+
+    // Image methods
+    // ------------------------------------------------------------------
     this.imageLoad = _imageLoad;
     this.spriteDraw = _spriteDraw;
+    this.spriteDrawScaled = _spriteDrawScaled;
 
-    // Background
+    // Background methods
+    // ------------------------------------------------------------------
     this.backgroundAdd = _backgroundAdd;
     this.backgroundWrapFactor = _backgroundWrapFactor;
     this.backgroundClear = _backgroundClear;
 
-    // Sound
+    // Sound methods
+    // ------------------------------------------------------------------
+    this.soundClose = _soundClose;
     this.soundLoad = _soundLoad;
     this.soundPlay = _soundPlay;
     this.soundRepeat = _soundRepeat;
@@ -1622,13 +1931,10 @@ var GX = new function() {
     this.soundPause = _soundPause;
     this.soundStop = _soundStop;
     this.soundStopAll = _soundStopAll;
-    this.soundClose = _soundClose;
     this.soundMuted = _soundMuted;
 
-    // Input
-    this.keyDown = _keyDown;
-
-    // Entity
+    // Entity methods
+    // ------------------------------------------------------------------
     this.entityCreate = _entityCreate;
     this.screenEntityCreate = _screenEntityCreate;
     this.entityAnimate = _entityAnimate;
@@ -1636,76 +1942,242 @@ var GX = new function() {
     this.entityAnimateMode = _entityAnimateMode;
     this.entityMove = _entityMove;
     this.entityPos = _entityPos;
+    this.entityVX = _entityVX;
+    this.entityVY = _entityVY;
+    this.entityVisible = _entityVisible;
+    this.entityFrameNext = _entityFrameNext;
+    this.entityFrameSet = _entityFrameSet;
+    this.entityCollisionOffset = _entityCollisionOffset;
+    this.entityApplyGravity = _entityApplyGravity;
+
     this.entityX = _entityX;
     this.entityY = _entityY;
     this.entityWidth = _entityWidth;
     this.entityHeight = _entityHeight;
-    this.entityFrameNext = _entityFrameNext;
-    this.entityFrameSet = _entityFrameSet;
     this.entityFrame = _entityFrame;
     this.entitySequence = _entitySequence;
     this.entitySequences = _entitySequences;
     this.entityFrames = _entityFrames;
-    this.entityVX = _entityVX;
-    this.entityVY = _entityVY;
-    this.entityVisible = _entityVisible;
     this.entityType = _entityType;
     this.entityMapLayer = _entityMapLayer;
-    this.entityApplyGravity = _entityApplyGravity;
-    this.entityCollisionOffset = _entityCollisionOffset;
+
     this.entityCollisionOffsetLeft = _entityCollisionOffsetLeft;
     this.entityCollisionOffsetTop = _entityCollisionOffsetTop;
     this.entityCollisionOffsetRight = _entityCollisionOffsetRight;
     this.entityCollisionOffsetBottom = _entityCollisionOffsetBottom;
 
-    // Map
+    // Map methods
+    // ------------------------------------------------------------------
     this.mapCreate = _mapCreate;
     this.mapLoad = _mapLoad;
     this.mapSave = _mapSave;
-    this.mapColumns = _mapColumns;
-    this.mapRows = _mapRows;
-    this.mapLayers = _mapLayers;
-    this.mapLayerVisible = _mapLayerVisible;
-    this.mapIsometric = _mapIsometric;
-    this.mapLayerAdd = _mapLayerAdd;
-    this.mapLayerInsert = _mapLayerInsert;
-    this.mapDraw = _mapDraw;
     this.mapTile = _mapTile;
-    
-    // Tileset
+    this.mapLayerClear = _mapLayerClear;
+    this.mapIsometric = _mapIsometric;
+    this.mapLayerHidden = _mapLayerHidden;
+
+    this.mapLayers = _mapLayers;
+    this.mapRows = _mapRows;
+    this.mapColumns = _mapColumns;
+
+    // Tileset methods
+    // ------------------------------------------------------------------
     this.tilesetCreate = _tilesetCreate;
+    this.tilesetTile = _tilesetTile;
     this.tilesetWidth = _tilesetWidth;
     this.tilesetHeight = _tilesetHeight;
-    this.tilesetImage = _tilesetImage;
+    this.tilesetDraw = _tilesetDraw;
+    this.tilesetAnimate = _tilesetAnimate;
+    this.tilesetFrames = _tilesetFrames;
+    this.tilesetFrameNext = _tilesetFrameNext;
+    this.tilesetFrame = _tilesetFrame;
 
-    // Debug
+    // Collision methods
+    // ------------------------------------------------------------------
+    this.mapTileCollide = _mapTileCollide;
+    this.entityEntityCollide = _entityEntityCollide;
+    this.mapEntityCollide = _mapEntityCollide;
+    this.mapTileIndex = _mapTileIndex;
+
+    // Drawing methods
+    // ------------------------------------------------------------------
+    this.drawPoint = _drawPoint;
+    this.drawCircle = _drawCircle;
+    this.drawLine = _drawLine;
+    this.drawRect = _drawRect;
+    this.drawEllipse = _drawEllipse;
+
+    // Font methods
+    // ------------------------------------------------------------------
+    this.fontLoad = _fontLoad;
+    this.fontDraw = _fontDraw;
+    this.fontCharSpacing = _fontCharSpacing;
+    this.fontLineSpacing = _fontLineSpacing;
+
+    // Debugging methods
+    // ------------------------------------------------------------------
     this.debug = _debug;
     this.debugFont = _debugFont;
-    
-    // Utility (VFS)
-    this.vfs = function() { return _vfs; };
-    this.vfsCwd = function(path) { 
-        if (path != undefined) {
-            var node = _vfs.getNode(path, _vfs.rootDirectory());
-            if (node && node.type == _vfs.DIRECTORY) {
-                _vfsCwd = node;
+
+    // VFS methods
+    // ------------------------------------------------------------------
+    this.vfs = _vfs;
+    this.vfsCwd = _vfsCwd;
+    this.vfsCd = _vfsCd;
+    this.vfsLs = _vfsLs;
+}
+
+// Global functions
+// ---------------------------------------------------------------------------------
+async function _getJSON(url) {
+    let response = await fetch(url);
+    if (response.ok) {
+        let json = await response.json();
+        return json;
+    } else {
+        throw new Error(response.status);
+    }
+}
+
+function _sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+var VFS = new function() {
+    this.FILE = 1;
+    this.DIR = 2;
+
+    var _rootDir = { name: "", path: "", type: this.DIR, children: [] };
+    var _dataView = null;
+    var _fileReader = new FileReader();
+
+    this.createFile = function(filename, parent) {
+        var node = { name: filename, path: parent.path + filename, type: this.FILE, data: null };
+        parent.children.push(node);
+        return node;
+    };
+
+    this.createDirectory = function(dirname, parent) {
+        var node = { name: dirname, path: parent.path + dirname + "/", type: this.DIR, children: [] };
+        parent.children.push(node);
+        return node;
+    };
+
+    this.removeFile = function(file, parent) {
+        for (var i=0; i < parent.children.length; i++) {
+            if (parent.children[i] == file) {
+                parent.children.splice(i, 1);
+                return;
             }
         }
-        return _vfsCwd;
     };
-    this.resourcesLoaded = _resourcesLoaded;
+
+    this.fullPath = function(node) {
+        return node.path;
+    };
+
+    this.getParentPath = function(path) {
+        var i = path.lastIndexOf("/");
+        return path.substring(0, i+1);
+    };
+
+    this.getFileName = function(path) {
+        var i = path.lastIndexOf("/");
+        return path.substring(i+1);
+    };
+
+    this.getNode = function(path, cwd) {
+        if (path == "") { return cwd; }
+        if (path == "/") { return _rootDir; }
+        
+        var parts = path.split("/");
+        var node = cwd;
+        if (path.startsWith("/")) { node = _rootDir; }
+        
+        for (var i=0; i < parts.length; i++) {
+            if (parts[i] == "") { continue; }
+            if (parts[i] == ".") { continue; }
+            if (parts[i] == "..") {
+                if (node.path != "") {
+                    var parentPath = this.getParentPath(node.path.substring(0, node.path.length-1));
+                    node = this.getNode(parentPath, _rootDir);
+                }
+                continue;
+            }
+
+            var found = false;
+            for (var j=0; j < node.children.length; j++) {
+                if (node.children[j].name == parts[i]) {
+                    node = node.children[j];
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) { return null; }
+        }
+        return node;
+    };
+
+    this.rootDirectory = function() { return _rootDir; };
+    
+    this.writeData = function(node, data, pos) {
+        if (!pos) { pos = 0; }
+        if (!node.data) { node.data = new Uint8Array(data); }
+        else {
+            if (node.data.byteLength < pos + data.byteLength) {
+                var newBuf = new Uint8Array(pos + data.byteLength);
+                newBuf.set(node.data, 0);
+                node.data = newBuf;
+            }
+        }
+        
+        if (data instanceof ArrayBuffer) {
+            node.data.set(new Uint8Array(data), pos);
+        }
+        else {
+            node.data.set(data, pos);
+        }
+    };
+
+    this.readData = function(node, pos, length) {
+        return node.data.buffer.slice(pos, pos + length);
+    };
+
+    this.readText = function(node) {
+        var text = "";
+        for (var i=0; i < node.data.byteLength; i++) {
+            text += String.fromCharCode(node.data[i]);
+        }
+        return text;
+    };
+    
+    this.getDataURL = async function(node) {
+        return new Promise((resolve, reject) => {
+            var blob = new Blob([node.data], {type: "image/png"});
+            _fileReader.onload = function(e) {
+                resolve(e.target.result);
+            }
+            _fileReader.readAsDataURL(blob);
+        });
+    };
+
+    this.textToData = function(str) {
+        var buf = new ArrayBuffer(str.length);
+        var bufView = new Uint8Array(buf);
+        for (var i=0; i < str.length; i++) {
+            bufView[i] = str.charCodeAt(i);
+        }
+        return buf;
+    }
 };
 
-// VFS (Virtual File System)
-var VFS = new function() {
-    this.FILE = 0;
-    this.DIRECTORY = 1;
-
-    // ... (VFS internal methods and structure omitted for brevity in this final output, but assumed complete)
-
-    this.arrayNew = function(a, dimensions, newObj) {
+// Array functions (QB compatible)
+// ---------------------------------------------------------------------------------
+var GXARRAY = new function() {
+    this.dim = function(a, newObj, dimensions) {
         a._newObj = newObj;
-        if (a._dimensions) {
+        if (a.length > 0) {
             var props = Object.getOwnPropertyNames(a);
             for (var i = 0; i < props.length; i++) {
                 if (props[i] != "_newObj") {
@@ -1742,7 +2214,8 @@ var VFS = new function() {
 
 };    
     
-// String Utilities
+
+// Consider moving these to separate optional js files
 var GXSTR = new function() {
     this.lPad = function(str, padChar, padLength) {
         return String(str).padStart(padLength, padChar);
@@ -1751,4 +2224,8 @@ var GXSTR = new function() {
     this.rPad = function(str, padChar, padLength) {
         return String(str).padEnd(padLength, padChar);
     }
-};
+
+    this.mid = function(str, start, length) {
+        return String(str).substring(start - 1, start + length - 1);
+    }
+}
