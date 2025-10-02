@@ -69,7 +69,6 @@ function _QB() {
         } else {
             // Browser environment
             return new Promise(resolve => {
-                // create console area if missing
                 let consoleArea = document.getElementById("qb_console_area");
                 if (!consoleArea) {
                     consoleArea = document.createElement("div");
@@ -78,54 +77,81 @@ function _QB() {
                     consoleArea.style.fontFamily = "monospace";
                     consoleArea.style.padding = "6px";
                     consoleArea.style.minHeight = "40px";
+                    consoleArea.style.backgroundColor = "#000"; // Example styling
+                    consoleArea.style.color = "#fff"; // Example styling
+                    consoleArea.style.overflowY = "auto"; // Allow scrolling for long output
+                    consoleArea.style.maxHeight = "calc(100vh - 20px)"; // Limit height
                     document.body.appendChild(consoleArea);
                 }
 
-                // show prompt
+                // Ensure consoleArea is visible and scrollable
+                consoleArea.style.display = "block";
+                consoleArea.scrollTop = consoleArea.scrollHeight; // Scroll to bottom
+
                 const promptLine = document.createElement("div");
                 promptLine.textContent = promptText;
                 consoleArea.appendChild(promptLine);
 
-                // input element
+                // Create a visible input element for user interaction
                 let inp = document.getElementById("_qb_console_input");
                 if (!inp) {
                     inp = document.createElement("input");
                     inp.id = "_qb_console_input";
                     inp.type = "text";
-                    inp.style.position = "fixed";
-                    inp.style.bottom = "8px";
-                    inp.style.left = "8px";
-                    inp.style.width = "1px";
-                    inp.style.height = "1px";
-                    inp.style.opacity = "0.01";
-                    inp.style.zIndex = 1000000;
+                    inp.style.width = "calc(100% - 12px)"; // Make it span most of the width
+                    inp.style.padding = "5px";
+                    inp.style.margin = "5px 0";
+                    inp.style.border = "1px solid #555";
+                    inp.style.backgroundColor = "#222";
+                    inp.style.color = "#fff";
+                    inp.style.fontFamily = "monospace";
+                    inp.style.fontSize = "1em";
+                    inp.style.boxSizing = "border-box"; // Include padding and border in width
                     inp.autocomplete = "off";
                     inp.autocapitalize = "none";
                     inp.autocorrect = "off";
                     inp.spellcheck = false;
                     inp.style.outline = "none";
-                    document.body.appendChild(inp);
+                    // Position it within the consoleArea, not fixed to the body
+                    consoleArea.appendChild(inp);
 
-                    consoleArea.addEventListener("click", () => inp.focus(), { passive: true });
+                    // Add a click listener to the console area to focus the input
+                    // This is useful if the user taps outside the input but still wants to type
+                    consoleArea.addEventListener("click", () => {
+                        inp.focus();
+                        // Scroll to the input if it's not visible
+                        inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    }, { passive: true });
+
+                } else {
+                    // If input already exists, ensure it's visible and at the bottom
+                    inp.style.display = "block";
+                    consoleArea.appendChild(inp); // Re-append to ensure it's at the bottom
                 }
 
                 inp.value = "";
-                inp.focus();
+                inp.focus(); // Attempt to focus to bring up virtual keyboard
+                inp.scrollIntoView({ behavior: 'smooth', block: 'end' }); // Ensure input is visible
 
                 function onKeyDown(e) {
                     if (e.key === "Enter") {
-                        e.preventDefault();
+                        e.preventDefault(); // Prevent default form submission or new line
                         const val = inp.value;
-                        inp.value = "";
+                        inp.value = ""; // Clear the input field
+                        inp.style.display = "none"; // Hide input after submission
+
                         const outLine = document.createElement("div");
                         outLine.textContent = val;
                         consoleArea.appendChild(outLine);
+                        consoleArea.scrollTop = consoleArea.scrollHeight; // Scroll to bottom
+
                         inp.removeEventListener("keydown", onKeyDown, false);
-                        inp.blur();
+                        inp.blur(); // Remove focus
                         resolve(val);
                     } else if (e.key === "Escape") {
                         e.preventDefault();
                         inp.value = "";
+                        inp.style.display = "none"; // Hide input on escape
                         inp.removeEventListener("keydown", onKeyDown, false);
                         inp.blur();
                         resolve("");
@@ -133,6 +159,15 @@ function _QB() {
                 }
 
                 inp.addEventListener("keydown", onKeyDown, false);
+
+                // Optional: Handle blur event to re-focus if needed (can be annoying)
+                // inp.addEventListener("blur", () => {
+                //     if (document.activeElement !== inp && inp.style.display !== "none") {
+                //         // If input loses focus but is still active, try to re-focus
+                //         // This can help keep the virtual keyboard open
+                //         setTimeout(() => inp.focus(), 100);
+                //     }
+                // });
             });
         }
     }
