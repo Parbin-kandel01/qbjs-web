@@ -71,8 +71,20 @@ function _QB() {
             return new Promise(resolve => {
                 let consoleArea = document.getElementById("qb_console_area");
                 if (!consoleArea) {
-                    consoleArea = document.createElement("div");
-                    consoleArea.id = "qb_console_area";
+                    // If qb_console_area doesn't exist, try to use the IDE's outputContent
+                    // This assumes IDE.js has already created _e.outputContent
+                    consoleArea = document.getElementById("output-content");
+                    if (!consoleArea) {
+                        // Fallback: create a basic console area if output-content is also missing
+                        consoleArea = document.createElement("div");
+                        consoleArea.id = "qb_console_area";
+                        document.body.appendChild(consoleArea);
+                    } else {
+                        // If using output-content, ensure it has the ID for consistency
+                        consoleArea.id = "qb_console_area";
+                    }
+
+                    // Apply basic console styling if it's a newly created div or output-content
                     consoleArea.style.whiteSpace = "pre-wrap";
                     consoleArea.style.fontFamily = "monospace";
                     consoleArea.style.padding = "6px";
@@ -80,8 +92,7 @@ function _QB() {
                     consoleArea.style.backgroundColor = "#000"; // Example styling
                     consoleArea.style.color = "#fff"; // Example styling
                     consoleArea.style.overflowY = "auto"; // Allow scrolling for long output
-                    consoleArea.style.maxHeight = "calc(100vh - 20px)"; // Limit height
-                    document.body.appendChild(consoleArea);
+                    // Max height will be managed by IDE.js's window.onresize for outputContent
                 }
 
                 // Ensure consoleArea is visible and scrollable
@@ -112,21 +123,23 @@ function _QB() {
                     inp.autocorrect = "off";
                     inp.spellcheck = false;
                     inp.style.outline = "none";
-                    // Position it within the consoleArea, not fixed to the body
+                    inp.placeholder = "Type here and press Enter..."; // User hint
                     consoleArea.appendChild(inp);
 
                     // Add a click listener to the console area to focus the input
-                    // This is useful if the user taps outside the input but still wants to type
                     consoleArea.addEventListener("click", () => {
                         inp.focus();
-                        // Scroll to the input if it's not visible
                         inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
                     }, { passive: true });
 
                 } else {
                     // If input already exists, ensure it's visible and at the bottom
                     inp.style.display = "block";
-                    consoleArea.appendChild(inp); // Re-append to ensure it's at the bottom
+                    // Re-append to ensure it's at the bottom of the consoleArea
+                    // This is important if other output has been added since last input
+                    if (inp.parentNode !== consoleArea || inp !== consoleArea.lastChild) {
+                        consoleArea.appendChild(inp);
+                    }
                 }
 
                 inp.value = "";
@@ -160,14 +173,12 @@ function _QB() {
 
                 inp.addEventListener("keydown", onKeyDown, false);
 
-                // Optional: Handle blur event to re-focus if needed (can be annoying)
-                // inp.addEventListener("blur", () => {
-                //     if (document.activeElement !== inp && inp.style.display !== "none") {
-                //         // If input loses focus but is still active, try to re-focus
-                //         // This can help keep the virtual keyboard open
-                //         setTimeout(() => inp.focus(), 100);
-                //     }
-                // });
+                // Optional: Add a touchstart listener to the consoleArea to ensure focus on input
+                // This can help on some mobile browsers that might not trigger focus on click reliably
+                consoleArea.addEventListener("touchstart", () => {
+                    inp.focus();
+                    inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }, { passive: true });
             });
         }
     }
