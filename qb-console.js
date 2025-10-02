@@ -1,5 +1,5 @@
 // console-qb.js
-// Production-ready _QB runtime (browser + node) with console input support (mobile-friendly)
+// Production-ready _QB runtime (browser + node) with console input support (mobile-friendly, keyboard fix)
 
 function _QB() {
     var _rndSeed;
@@ -46,11 +46,11 @@ function _QB() {
     }
 
     // ------------------------
-    // Input handling (browser + Node)
+    // Input handling (browser + Node) - Fixed for mobile keyboard
     // ------------------------
     async function func_Input(promptText) {
         if (typeof window === "undefined") {
-            // Node environment
+            // Node environment (unchanged)
             return new Promise(resolve => {
                 try {
                     const readline = require("readline");
@@ -67,49 +67,66 @@ function _QB() {
                 }
             });
         } else {
-            // Browser environment
+            // Browser environment (enhanced for mobile keyboard reliability)
             return new Promise(resolve => {
+                // Auto-ensure console is visible (calls IDE method if available)
+                if (typeof IDE !== 'undefined' && IDE.ensureConsoleVisible) {
+                    IDE.ensureConsoleVisible();
+                }
+
                 let consoleArea = document.getElementById("qb_console_area");
                 if (!consoleArea) {
-                    // If qb_console_area doesn't exist, try to use the IDE's outputContent
-                    // This assumes IDE.js has already created _e.outputContent
+                    // Fallback: Use IDE's output-content if available
                     consoleArea = document.getElementById("output-content");
-                    if (!consoleArea) {
-                        // Fallback: create a basic console area if output-content is also missing
+                    if (consoleArea) {
+                        consoleArea.id = "qb_console_area"; // Consistent ID
+                    } else {
+                        // Ultimate fallback: Create basic console area
                         consoleArea = document.createElement("div");
                         consoleArea.id = "qb_console_area";
                         document.body.appendChild(consoleArea);
-                    } else {
-                        // If using output-content, ensure it has the ID for consistency
-                        consoleArea.id = "qb_console_area";
                     }
-
-                    // Apply basic console styling if it's a newly created div or output-content
-                    consoleArea.style.whiteSpace = "pre-wrap";
-                    consoleArea.style.fontFamily = "monospace";
-                    consoleArea.style.padding = "6px";
-                    consoleArea.style.minHeight = "40px";
-                    consoleArea.style.backgroundColor = "#000"; // Example styling
-                    consoleArea.style.color = "#fff"; // Example styling
-                    consoleArea.style.overflowY = "auto"; // Allow scrolling for long output
-                    // Max height will be managed by IDE.js's window.onresize for outputContent
                 }
 
-                // Ensure consoleArea is visible and scrollable
+                // Apply console styling (preserved + mobile overflow)
+                consoleArea.style.whiteSpace = "pre-wrap";
+                consoleArea.style.fontFamily = "monospace";
+                consoleArea.style.padding = "6px";
+                consoleArea.style.minHeight = "40px";
+                consoleArea.style.backgroundColor = "#000";
+                consoleArea.style.color = "#fff";
+                consoleArea.style.overflowY = "auto";
+                consoleArea.style.maxHeight = "calc(100vh - 100px)";
                 consoleArea.style.display = "block";
-                consoleArea.scrollTop = consoleArea.scrollHeight; // Scroll to bottom
+                consoleArea.scrollTop = consoleArea.scrollHeight;
 
+                // Add prompt line (original logic)
                 const promptLine = document.createElement("div");
                 promptLine.textContent = promptText;
                 consoleArea.appendChild(promptLine);
 
-                // Create a visible input element for user interaction
+                // Create tappable "Tap to Enter" button for user gesture (mobile keyboard trigger)
+                const tapButton = document.createElement("button");
+                tapButton.id = "_qb_tap_to_input";
+                tapButton.textContent = "Tap to Enter Input";
+                tapButton.style.width = "100%";
+                tapButton.style.padding = "8px";
+                tapButton.style.margin = "5px 0";
+                tapButton.style.backgroundColor = "#444";
+                tapButton.style.color = "#fff";
+                tapButton.style.border = "1px solid #666";
+                tapButton.style.fontFamily = "monospace";
+                tapButton.style.cursor = "pointer";
+                tapButton.style.display = "block"; // Visible on mobile
+                consoleArea.appendChild(tapButton);
+
+                // Create or reuse input element
                 let inp = document.getElementById("_qb_console_input");
                 if (!inp) {
                     inp = document.createElement("input");
                     inp.id = "_qb_console_input";
                     inp.type = "text";
-                    inp.style.width = "calc(100% - 12px)"; // Make it span most of the width
+                    inp.style.width = "calc(100% - 12px)";
                     inp.style.padding = "5px";
                     inp.style.margin = "5px 0";
                     inp.style.border = "1px solid #555";
@@ -117,54 +134,86 @@ function _QB() {
                     inp.style.color = "#fff";
                     inp.style.fontFamily = "monospace";
                     inp.style.fontSize = "1em";
-                    inp.style.boxSizing = "border-box"; // Include padding and border in width
+                    inp.style.boxSizing = "border-box";
+                    inp.style.display = "none"; // Initially hidden; shown on tap
                     inp.autocomplete = "off";
                     inp.autocapitalize = "none";
                     inp.autocorrect = "off";
                     inp.spellcheck = false;
                     inp.style.outline = "none";
-                    inp.placeholder = "Type here and press Enter..."; // User hint
+                    inp.placeholder = "Type here and press Enter...";
                     consoleArea.appendChild(inp);
 
-                    // Add a click listener to the console area to focus the input
-                    consoleArea.addEventListener("click", () => {
-                        inp.focus();
-                        inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                    }, { passive: true });
+                    // Enhanced focus function (with delay for mobile timing)
+                    const focusInput = () => {
+                        inp.style.display = "block"; // Show input
+                        tapButton.style.display = "none"; // Hide button after tap
+                        inp.value = "";
+                        // Delayed focus to ensure DOM/resize settles
+                        requestAnimationFrame(() => {
+                            inp.focus();
+                            inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                            // Retry focus if needed (mobile quirk)
+                            setTimeout(() => {
+                                if (document.activeElement !== inp) {
+                                    inp.focus();
+                                }
+                            }, 100);
+                        });
+                    };
 
+                    // Tap button triggers focus (user gesture for keyboard)
+                    tapButton.addEventListener("click", focusInput, { passive: true });
+                    tapButton.addEventListener("touchstart", focusInput, { passive: true });
+
+                    // Fallback: Click/touch on console area also focuses
+                    const areaFocus = () => {
+                        if (inp.style.display === "none") focusInput();
+                    };
+                    consoleArea.addEventListener("click", areaFocus, { passive: true });
+                    consoleArea.addEventListener("touchstart", areaFocus, { passive: true });
                 } else {
-                    // If input already exists, ensure it's visible and at the bottom
-                    inp.style.display = "block";
-                    // Re-append to ensure it's at the bottom of the consoleArea
-                    // This is important if other output has been added since last input
-                    if (inp.parentNode !== consoleArea || inp !== consoleArea.lastChild) {
-                        consoleArea.appendChild(inp);
+                    // Reuse: Show tap button if input was hidden
+                    if (document.getElementById("_qb_tap_to_input")) {
+                        tapButton.style.display = "block";
                     }
+                    inp.style.display = "none";
+                    consoleArea.appendChild(inp); // Ensure positioning
                 }
 
-                inp.value = "";
-                inp.focus(); // Attempt to focus to bring up virtual keyboard
-                inp.scrollIntoView({ behavior: 'smooth', block: 'end' }); // Ensure input is visible
+                // Initially show tap button (prompts user interaction for keyboard)
+                if (!document.getElementById("_qb_tap_to_input")) {
+                    consoleArea.appendChild(tapButton);
+                }
+                tapButton.style.display = "block";
 
+                // Scroll to prompt/tap area
+                promptLine.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+                // Keydown handler (original, works on mobile)
                 function onKeyDown(e) {
                     if (e.key === "Enter") {
-                        e.preventDefault(); // Prevent default form submission or new line
+                        e.preventDefault();
                         const val = inp.value;
-                        inp.value = ""; // Clear the input field
-                        inp.style.display = "none"; // Hide input after submission
+                        inp.value = "";
+                        inp.style.display = "none";
 
+                        // Echo input
                         const outLine = document.createElement("div");
                         outLine.textContent = val;
                         consoleArea.appendChild(outLine);
-                        consoleArea.scrollTop = consoleArea.scrollHeight; // Scroll to bottom
+                        consoleArea.scrollTop = consoleArea.scrollHeight;
 
+                        // Cleanup: Remove listeners and button
                         inp.removeEventListener("keydown", onKeyDown, false);
-                        inp.blur(); // Remove focus
+                        if (tapButton) tapButton.remove();
+                        inp.blur();
                         resolve(val);
                     } else if (e.key === "Escape") {
                         e.preventDefault();
                         inp.value = "";
-                        inp.style.display = "none"; // Hide input on escape
+                        inp.style.display = "none";
+                        if (tapButton) tapButton.remove();
                         inp.removeEventListener("keydown", onKeyDown, false);
                         inp.blur();
                         resolve("");
@@ -173,18 +222,19 @@ function _QB() {
 
                 inp.addEventListener("keydown", onKeyDown, false);
 
-                // Optional: Add a touchstart listener to the consoleArea to ensure focus on input
-                // This can help on some mobile browsers that might not trigger focus on click reliably
-                consoleArea.addEventListener("touchstart", () => {
-                    inp.focus();
-                    inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }, { passive: true });
+                // Error handling: If no interaction after 30s, resolve empty (prevent hang)
+                setTimeout(() => {
+                    if (inp.style.display === "block" && document.activeElement !== inp) {
+                        console.warn("QB Input: No user interaction detected, resolving empty.");
+                        resolve("");
+                    }
+                }, 30000);
             });
         }
     }
 
     // ------------------------
-    // Fetch helper (Node + Browser)
+    // Fetch helper (Node + Browser) - Unchanged
     // ------------------------
     async function sub_Fetch(url, fetchRes) {
         if (typeof window === "undefined") {
@@ -219,7 +269,7 @@ function _QB() {
     }
 
     // ------------------------
-    // Other helpers (same as original)
+    // Other helpers (unchanged)
     // ------------------------
     function halt() {}
     function halted() { return false; }
@@ -246,7 +296,7 @@ function _QB() {
     function func_UCase(v){_assertParam(v);return String(v).toUpperCase();}
 
     // ------------------------
-    // Public API
+    // Public API (unchanged)
     // ------------------------
     return {
         initArray, resizeArray, arrayValue, autoLimit, halt, halted,
@@ -257,6 +307,6 @@ function _QB() {
     };
 }
 
-// Node export + attach to window
+// Node export + attach to window (unchanged)
 if(typeof module!=="undefined" && module.exports){module.exports.QB=_QB;}
 if(typeof window!=="undefined"){window.QB=_QB;}
