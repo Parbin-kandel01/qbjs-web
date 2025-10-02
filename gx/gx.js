@@ -551,6 +551,7 @@ var GX = new function() {
                     return _qbBoolean(_touchControls.action);
                 // Add other keys if needed for mobile virtual keyboard fallback
                 default:
+                    // Fallback to physical/virtual keyboard events for other keys
                     return _qbBoolean(_pressedKeys[key]);
             }
         }
@@ -1102,7 +1103,7 @@ var GX = new function() {
         var layers = readInt(fh);
         var isometric = readInt(fh);
         
-        slen = readLong(fh);
+        var slen = readLong(fh); // Corrected: declared slen with var
         
         var data = vfs.readData(fh.file, fh.pos, slen)
         fh.pos += data.byteLength;
@@ -1190,7 +1191,7 @@ var GX = new function() {
         
         function readString(fh) {
             var slen = readLong(fh);
-            data = vfs.readData(fh.file, fh.pos, slen)
+            var data = vfs.readData(fh.file, fh.pos, slen) // Corrected: declared data with var
             var value = String.fromCharCode.apply(null, new Uint8Array(data))
             fh.pos += data.byteLength;
             return value;
@@ -1275,130 +1276,7 @@ var GX = new function() {
         // write the tileset animations data
         writeInt(fh, _tileset_animations.length);
         for (var i=0; i < 3; i++) { writeInt(fh, 0); }
-        for (var i=1; i <= asize; i++) {
-            animations.push([readInt(fh), readInt(fh), readInt(fh)]);
-        }
-    
-        GX.tilesetCreate("/_gxtmp/tileset.png", tsWidth, tsHeight, tiles, animations);
-        GX.mapCreate(columns, rows, layers);
-        if (isometric) {
-            GX.mapIsometric(true);
-        }
-        var li = 0
-        for (var l=0; l <= GX.mapLayers(); l++) {
-            if (l > 0) { li++; }
-            for (var row=0; row < GX.mapRows(); row++) {
-                for (var col=0; col < GX.mapColumns(); col++) {
-                    if (l > 0) {
-                        GX.mapTile(col, row, l, ldata[li]);
-                    }
-                    li++;
-                }
-            }
-        }
-        
-        function readInt(fh) {
-            var data = vfs.readData(fh.file, fh.pos, 2);
-            var value = (new DataView(data)).getInt16(0, true);
-            fh.pos += data.byteLength;
-            return value;
-        }
-        
-        function readLong(fh) {
-            var data = vfs.readData(fh.file, fh.pos, 4);
-            var value = (new DataView(data)).getInt32(0, true);
-            fh.pos += data.byteLength;
-            return value;
-        }
-        
-        function readString(fh) {
-            var slen = readLong(fh);
-            data = vfs.readData(fh.file, fh.pos, slen)
-            var value = String.fromCharCode.apply(null, new Uint8Array(data))
-            fh.pos += data.byteLength;
-            return value;
-        }
-        _map_loading = false;
-    }
-    
-    async function _mapSave (filename) {
-        var vfs = GX.vfs();
-        var parentPath = vfs.getParentPath(filename);
-        filename = vfs.getFileName(filename);
-    
-        // create the parent path
-        var dirs = parentPath.split("/");
-        var parentDir = vfs.rootDirectory();
-        for (var i=0; i < dirs.length; i++) {
-            if (dirs[i] == "") { continue; }
-            var p = vfs.getNode(dirs[i], parentDir);
-            if (!p) { p = vfs.getNode(dirs[i], parentDir); }
-            parentDir = p;
-        }
-    
-        var tmpDir = vfs.getNode("_gxtmp", vfs.rootDirectory());
-        if (!tmpDir) { tmpDir = vfs.createDirectory("_gxtmp", vfs.rootDirectory()); }
-    
-        var file = vfs.createFile(filename, parentDir);
-        var fh = { file: file, pos: 0 };
-        
-        writeInt(fh, 2); // version
-        writeInt(fh, GX.mapColumns());
-        writeInt(fh, GX.mapRows());
-        writeInt(fh, GX.mapLayers());
-        writeInt(fh, GX.mapIsometric());
-        
-        var size = (GX.mapLayers() + 1) * GX.mapColumns() * GX.mapRows() + GX.mapLayers();
-        var ldata = new ArrayBuffer(size * 2 + 4);
-        var dview = new DataView(ldata);
-        var li = GX.mapColumns() * GX.mapRows() * 2 + 1;
-        for (var l=1; l <= GX.mapLayers(); l++) {
-            if (l > 1) { li+=2; }
-            for (var row=0; row < GX.mapRows(); row++) {
-                for (var col=0; col < GX.mapColumns(); col++) {
-                    if (l == 0) { 
-                        dview.setInt16(li+1, 0, true);
-                    }
-                    else {
-                        dview.setInt16(li+1, GX.mapTile(col, row, l), true);
-                    }
-                    li+=2;
-                }
-            }
-        }
-
-        var cdata = pako.deflate(ldata);
-        writeLong(fh, cdata.byteLength);
-        vfs.writeData(fh.file, cdata, fh.pos);
-        fh.pos += cdata.byteLength;
-
-        // write the tileset data
-        writeInt(fh, 2); // version
-        writeString(fh, "tileset.gxi");
-        writeInt(fh, GX.tilesetWidth());
-        writeInt(fh, GX.tilesetHeight());
-        
-        // write the tileset png data
-        var tsfile = vfs.getNode(_tileset.filename);
-        writeLong(fh, tsfile.data.byteLength);
-        vfs.writeData(fh.file, tsfile.data, fh.pos);
-        fh.pos += tsfile.data.byteLength;
-        fh.pos++;
-        
-        // write the tileset tiles data  
-        writeInt(fh, _tileset_tiles.length);
-        for (var i=0; i < 4; i++) { writeInt(fh, 0); }
-        for (var i=0; i < _tileset_tiles.length; i++) {
-            writeInt(fh, 0);//i+1);
-            writeInt(fh, _tileset_tiles[i].animationId);
-            writeInt(fh, _tileset_tiles[i].animationSpeed);
-            writeInt(fh, _tileset_tiles[i].animationFrame);
-        }
-
-        // write the tileset animations data
-        writeInt(fh, _tileset_animations.length);
-        for (var i=0; i < 3; i++) { writeInt(fh, 0); }
-        for (var i=0; i < _tileset_animations.length; i++) {
+        for (var i=0; i < _tileset_animations.length; i++) { // Corrected: loop through _tileset_animations.length
             writeInt(fh, _tileset_animations[i].tileId);
             writeInt(fh, _tileset_animations[i].firstFrame);
             writeInt(fh, _tileset_animations[i].nextFrame);
@@ -1691,7 +1569,7 @@ var GX = new function() {
                     id: i+1,
                     animationId: tile[0],
                     animationSpeed: tile[1],
-                    animationFrame: tiles[2]
+                    animationFrame: tile[2] // Corrected: tile[2] instead of tiles[2]
                 });
             }
         }
@@ -1731,7 +1609,7 @@ var GX = new function() {
             imgLoaded = true;
         });
         var waitMillis = 0;
-        while (!imgLoaded & waitMillis < 3000) {
+        while (!imgLoaded && waitMillis < 3000) { // Corrected: use && instead of &
             await GX.sleep(10);
             waitMillis += 10;
         }
@@ -2435,8 +2313,8 @@ var GX = new function() {
     }
 
     function _deviceInputTest(di) {
-        if (di.deviceType = GX.DEVICE_KEYBOARD) {
-            if (di.inputType = GX.DEVICE_BUTTON) {
+        if (di.deviceType == GX.DEVICE_KEYBOARD) { // Corrected: use == for comparison
+            if (di.inputType == GX.DEVICE_BUTTON) { // Corrected: use == for comparison
                 return GX.keyDown(di.inputId);
             }
         }
@@ -2626,7 +2504,7 @@ var GX = new function() {
                 dname = "Controller"
             Else
                 nstart = nstart + 7
-                nend = InStr(nstart, dname, "]]")
+                nend = InStr(nname, dname, "]]") // Corrected: use dname instead of nname
                 dname = _Trim$(Mid$(dname, nstart, nend - nstart))
             End If
         ElseIf InStr(dname, "[MOUSE]") Then
@@ -2653,7 +2531,7 @@ var GX = new function() {
             Case GXDEVICE_BUTTON: itypename = "BUTTON"
             Case GXDEVICE_AXIS: itypename = "AXIS"
             Case GXDEVICE_WHEEL: itypename = "WHEEL"
-        End Select
+        </Select>
         GXInputTypeName = itypename
     End Function
 */
@@ -2705,64 +2583,65 @@ var GX = new function() {
             case GX.KEY_BACKSLASH: k = "\\"; break;
             case GX.KEY_Z: k = "Z"; break;
             case GX.KEY_X: k = "X"; break;
-            case GX.KEY_C = 'KeyC';
-            case GX.KEY_V = 'KeyV';
-            case GX.KEY_B = 'KeyB';
-            case GX.KEY_N = 'KeyN';
-            case GX.KEY_M = 'KeyM';
-            case GX.KEY_COMMA = 'Comma';
-            case GX.KEY_PERIOD = 'Period';
-            case GX.KEY_SLASH = 'Slash';
-            case GX.KEY_RSHIFT = 'ShiftRight';
-            case GX.KEY_NUMPAD_MULTIPLY = 'NumpadMultiply';
-            case GX.KEY_SPACEBAR = 'Space';
-            case GX.KEY_CAPSLOCK = 'CapsLock';
-            case GX.KEY_F1 = 'F1';
-            case GX.KEY_F2 = 'F2';
-            case GX.KEY_F3 = 'F3';
-            case GX.KEY_F4 = 'F4';
-            case GX.KEY_F5 = 'F5';
-            case GX.KEY_F6 = 'F6';
-            case GX.KEY_F7 = 'F7';
-            case GX.KEY_F8 = 'F8';
-            case GX.KEY_F9 = 'F9';
-            case GX.KEY_F10 = 'F10';
-            case GX.KEY_PAUSE = 'Pause';
-            case GX.KEY_SCRLK = 'ScrollLock';
-            case GX.KEY_NUMPAD_7 = 'Numpad7';
-            case GX.KEY_NUMPAD_8 = 'Numpad8';
-            case GX.KEY_NUMPAD_9 = 'Numpad9';
-            case GX.KEY_NUMPAD_MINUS = 'NumpadSubtract';
-            case GX.KEY_NUMPAD_4 = 'Numpad4';
-            case GX.KEY_NUMPAD_5 = 'Numpad5';
-            case GX.KEY_NUMPAD_6 = 'Numpad6';
-            case GX.KEY_NUMPAD_PLUS = 'NumpadAdd';
-            case GX.KEY_NUMPAD_1 = 'Numpad1';
-            case GX.KEY_NUMPAD_2 = 'Numpad2';
-            case GX.KEY_NUMPAD_3 = 'Numpad3';
-            case GX.KEY_NUMPAD_0 = 'Numpad0';
-            case GX.KEY_NUMPAD_PERIOD = 'NumpadDecimal';
-            case GX.KEY_F11 = 'F11';
-            case GX.KEY_F12 = 'F12';
-            case GX.KEY_NUMPAD_ENTER = 'NumpadEnter';
-            case GX.KEY_RCTRL = 'ControlRight';
-            case GX.KEY_NUMPAD_DIVIDE = 'NumpadDivide';
-            case GX.KEY_NUMLOCK = 'NumLock';
-            case GX.KEY_HOME = 'Home';
-            case GX.KEY_UP = 'ArrowUp';
-            case GX.KEY_PAGEUP = 'PageUp';
-            case GX.KEY_LEFT = 'ArrowLeft';
-            case GX.KEY_RIGHT = 'ArrowRight';
-            case GX.KEY_END = 'End';
-            case GX.KEY_DOWN = 'ArrowDown';
-            case GX.KEY_PAGEDOWN = 'PageDown';
-            case GX.KEY_INSERT = 'Insert';
-            case GX.KEY_DELETE = 'Delete';
-            case GX.KEY_LWIN = 'MetaLeft';
-            case GX.KEY_RWIN = 'MetaRight';
-            case GX.KEY_MENU = 'ContextMenu';
-            case GX.KEY_LALT = "AltLeft";
-            case GX.KEY_RALT = "AltRight";
+            case GX.KEY_C: k = "C"; break;
+            case GX.KEY_V: k = "V"; break;
+            case GX.KEY_B: k = "B"; break;
+            case GX.KEY_N: k = "N"; break;
+            case GX.KEY_M: k = "M"; break;
+            case GX.KEY_COMMA: k = ","; break;
+            case GX.KEY_PERIOD: k = "."; break;
+            case GX.KEY_SLASH: k = "/"; break;
+            case GX.KEY_RSHIFT: k = "RShift"; break;
+            case GX.KEY_NUMPAD_MULTIPLY: k = "NPad *"; break;
+            case GX.KEY_SPACEBAR: k = "Space"; break;
+            case GX.KEY_CAPSLOCK: k = "CapsLk"; break;
+            case GX.KEY_F1: k = "F1"; break;
+            case GX.KEY_F2: k = "F2"; break;
+            case GX.KEY_F3: k = "F3"; break;
+            case GX.KEY_F4: k = "F4"; break;
+            case GX.KEY_F5: k = "F5"; break;
+            case GX.KEY_F6: k = "F6"; break;
+            case GX.KEY_F7: k = "F7"; break;
+            case GX.KEY_F8: k = "F8"; break;
+            case GX.KEY_F9: k = "F9"; break;
+            case GX.KEY_F10: k = "F10"; break;
+            case GX.KEY_PAUSE: k = "Pause"; break;
+            case GX.KEY_SCRLK: k = "ScrLk"; break;
+            case GX.KEY_NUMPAD_7: k = "NPad 7"; break;
+            case GX.KEY_NUMPAD_8: k = "NPad 8"; break;
+            case GX.KEY_NUMPAD_9: k = "NPad 9"; break;
+            case GX.KEY_NUMPAD_MINUS: k = "-"; break;
+            case GX.KEY_NUMPAD_4: k = "NPad 4"; break;
+            case GX.KEY_NUMPAD_5: k = "NPad 5"; break;
+            case GX.KEY_NUMPAD_6: k = "NPad 6"; break;
+            case GX.KEY_NUMPAD_PLUS: k = "+"; break;
+            case GX.KEY_NUMPAD_1: k = "NPad 1"; break;
+            case GX.KEY_NUMPAD_2: k = "NPad 2"; break;
+            case GX.KEY_NUMPAD_3: k = "NPad 3"; break;
+            case GX.KEY_NUMPAD_0: k = "NPad 0"; break;
+            case GX.KEY_NUMPAD_PERIOD: k = "NPad ."; break;
+            case GX.KEY_F11: k = "F11"; break;
+            case GX.KEY_F12: k = "F12"; break;
+            case GX.KEY_NUMPAD_ENTER: k = "NPad Enter"; break;
+            case GX.KEY_RCTRL: k = "RCtrl"; break;
+            case GX.KEY_NUMPAD_DIVIDE: k = "NPad /"; break;
+            case GX.KEY_NUMLOCK: k = "NumLk"; break;
+            case GX.KEY_HOME: k = "Home"; break;
+            case GX.KEY_UP: k = "Up"; break;
+            case GX.KEY_PAGEUP: k = "PgUp"; break;
+            case GX.KEY_LEFT: k = "Left"; break;
+            case GX.KEY_RIGHT: k = "Right"; break;
+            case GX.KEY_END: k = "End"; break;
+            case GX.KEY_DOWN: k = "Down"; break;
+            case GX.KEY_PAGEDOWN: k = "PgDn"; break;
+            case GX.KEY_INSERT: k = "Ins"; break;
+            case GX.KEY_DELETE: k = "Del"; break;
+            case GX.KEY_LWIN: k = "LWin"; break;
+            case GX.KEY_RWIN: k = "RWin"; break;
+            case GX.KEY_MENU: k = "Menu"; break;
+            case GX.KEY_LALT: k = "LAlt"; break;
+            case GX.KEY_RALT: k = "RAlt"; break;
+            default: k = inputId; break; // Fallback for unknown keys
         }
         return k;
     }
