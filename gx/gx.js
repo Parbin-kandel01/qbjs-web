@@ -2351,7 +2351,7 @@ var GX = new function() {
             $End If
 
         ElseIf di.inputType = GXDEVICE_AXIS Then
-            If _Axis(di.inputId) = di.inputValue Then
+            If _Axis(i.inputId) = di.inputValue Then
                 result = GX_TRUE
             End If
         End If
@@ -2773,41 +2773,50 @@ var GX = new function() {
         // keyboard event initialization
         // detect key state for KeyDown method
         addEventListener("keyup", function(event) { 
-            // Check if an input field or textarea is currently focused
             const activeElement = document.activeElement;
             const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
 
+            // Only prevent default if the game is active AND we are NOT typing into an input field
             if (_scene.active && !isTypingIntoInput) {
                 event.preventDefault();
             }
-            if (!isTypingIntoInput) {
-                _pressedKeys[event.code] = false;
-            }
+            // Always update pressedKeys, regardless of input focus, for game logic
+            _pressedKeys[event.code] = false;
         });
+
         addEventListener("keydown", function(event) { 
-            // Check if an input field or textarea is currently focused
             const activeElement = document.activeElement;
             const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
 
+            // Only prevent default if the game is active AND we are NOT typing into an input field
             if (_scene.active && !isTypingIntoInput) {
                 event.preventDefault();
             }
-            if (!isTypingIntoInput) {
-                _pressedKeys[event.code] = true;
-            }
+            // Always update pressedKeys, regardless of input focus, for game logic
+            _pressedKeys[event.code] = true;
         });
 
         // --- NEW: Mobile device detection and touch control setup ---
         _isMobileDevice = /Mobi|Android/i.test(navigator.userAgent);
         if (_isMobileDevice) {
             console.log("Mobile device detected. Initializing touch controls.");
-            // Hide the virtual keyboard by ensuring no input fields are focused
-            // MODIFIED: Allow virtual keyboard for actual input/textarea elements
+            
+            // MODIFIED: This touchstart listener should NOT blur input fields if they are already focused.
+            // It should only prevent default behavior for touches that are NOT on input/textarea elements.
             document.body.addEventListener('touchstart', function(e) {
                 const activeElement = document.activeElement;
-                if (activeElement && activeElement.tagName !== 'BODY' &&
-                    activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
-                    activeElement.blur();
+                const isTouchingInput = (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+
+                // If the touch is on an input/textarea, allow default behavior (which includes showing keyboard)
+                // If the touch is not on an input/textarea, and an input/textarea is currently focused,
+                // we might want to blur it to hide the keyboard, but only if the touch is outside the input.
+                // For simplicity and to ensure keyboard appears, we will only prevent default if it's not an input.
+                if (!isTouchingInput) {
+                    e.preventDefault(); // Prevent default touch behavior like scrolling/zooming outside inputs
+                    // If an input was focused and user touches outside, blur it to hide keyboard
+                    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+                        activeElement.blur();
+                    }
                 }
             }, { passive: false }); // passive: false is crucial for preventDefault
 
