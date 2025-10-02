@@ -3,7 +3,8 @@
     <head>
         <title>QBJS</title>
         <meta charset="utf-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <!-- UPDATED: Improved viewport for mobile (prevents zooming during touch input) -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
         <link rel="manifest" href="manifest.json"></link>
         <link rel="stylesheet" href="qbjs-ide.css"></link>
         <link rel="stylesheet" href="codemirror/codemirror.min.css"></link>
@@ -40,6 +41,91 @@
         <script type="text/javascript" src="codemirror/vim.js"></script>
 
         <script type="text/javascript" src="util/showdown.min.js"></script>
+
+        <!-- NEW: Inline CSS for mobile touch controls (can be moved to qbjs-ide.css if preferred) -->
+        <style>
+            /* Mobile Touch Controls Styling */
+            #touch-controls {
+                position: absolute;
+                bottom: 20px;
+                left: 0;
+                right: 0;
+                display: none; /* Hidden by default; gx.js shows on mobile */
+                z-index: 1000;
+                pointer-events: none; /* Allow touches to pass through if no button hit */
+            }
+
+            #dpad {
+                position: absolute;
+                left: 20px;
+                bottom: 0;
+                display: grid;
+                grid-template-columns: repeat(3, 60px);
+                grid-template-rows: repeat(3, 60px);
+                gap: 5px;
+                pointer-events: auto; /* Buttons capture touches */
+            }
+
+            #dpad button {
+                width: 60px;
+                height: 60px;
+                background-color: rgba(0, 0, 0, 0.5);
+                border: 2px solid rgba(255, 255, 255, 0.7);
+                color: white;
+                font-size: 1.2em;
+                border-radius: 10px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                user-select: none;
+                -webkit-tap-highlight-color: transparent; /* Remove mobile tap highlight */
+                touch-action: manipulation; /* Improve touch responsiveness */
+            }
+
+            #dpad #touch-up { grid-area: 1 / 2 / 2 / 3; }
+            #dpad #touch-left { grid-area: 2 / 1 / 3 / 2; }
+            #dpad #touch-right { grid-area: 2 / 3 / 3 / 4; }
+            #dpad #touch-down { grid-area: 3 / 2 / 4 / 3; }
+
+            #action-buttons {
+                position: absolute;
+                right: 20px;
+                bottom: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                pointer-events: auto;
+            }
+
+            #action-buttons button {
+                width: 80px;
+                height: 80px;
+                background-color: rgba(0, 0, 0, 0.5);
+                border: 2px solid rgba(255, 255, 255, 0.7);
+                color: white;
+                font-size: 1.5em;
+                border-radius: 50%; /* Circular button */
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                user-select: none;
+                -webkit-tap-highlight-color: transparent;
+                touch-action: manipulation;
+            }
+
+            /* Ensure gx-container is relatively positioned for absolute child positioning */
+            #gx-container {
+                position: relative;
+            }
+
+            /* Hide touch controls on non-mobile devices (gx.js also handles this) */
+            @media (min-width: 768px) {
+                #touch-controls {
+                    display: none !important;
+                }
+            }
+        </style>
+        <!-- END NEW CSS -->
     </head>
     <body style="display:none">
         <div id="toolbar">
@@ -71,6 +157,19 @@
         <div id="game-container">
             <div id="gx-container">
                 <a href="javascript:runProgram()" id="gx-load-screen">&nbsp;</a>
+                <!-- NEW: Touch Controls HTML (for mobile GX games) -->
+                <div id="touch-controls">
+                    <div id="dpad">
+                        <button id="touch-up">▲</button>
+                        <button id="touch-left">◀</button>
+                        <button id="touch-right">▶</button>
+                        <button id="touch-down">▼</button>
+                    </div>
+                    <div id="action-buttons">
+                        <button id="touch-action">A</button>
+                    </div>
+                </div>
+                <!-- END NEW: Touch Controls -->
             </div>
             <div id="vslider"></div>
             <div id="output-container">
@@ -195,96 +294,4 @@
             <div>
                 <img id="logo" src="logo.png" onclick="window.open('https://github.com/boxgaming/qbjs/wiki', '_blank')">
                 <p>QBJS - QBasic for the Web!</p>
-                <p>Version: <a href="https://github.com/boxgaming/qbjs/releases" target="_blank">0.10.0</a></p>
-                <p></p>
-                <p>
-                    QBJS brings the fun and accessibility of QBasic to the browser.<br/>
-                    Learn more:<br/>
-                    <ul>
-                        <li><a href="javascript:IDE.showHelp('language')">QBasic Language Support</a></li>
-                        <li><a href="javascript:IDE.showHelp('keywords')">Supported Keywords</a></li>
-                        <li><a href="javascript:IDE.showHelp('samples')">Samples</a></li>
-                    </ul>
-                </p>
-                <p>Copyright (c) 2022-2025 boxgaming</p>
-                <div>
-                    <a href="javascript:IDE.closeDialog()" style="display:block; float:right">Close</a>
-                </div>
-            </div>
-        </dialog>
-    </body>
-    
-    <script language="javascript">
-        // ⭐️ CRITICAL FIX 1: Define the missing asynchronous delay function
-        // This is required by qb.js (line 31) for handling silent pauses,
-        // which was causing the "delay is not defined" error.
-        const delay = ms => new Promise(res => setTimeout(res, ms));
-
-        // 1. **STOP SERVICE WORKER:** Original 'serviceWorker' registration is removed.
-        console.log("Service Worker registration intentionally skipped for WebView.");
-        
-        // 2. **CREATE HOOK:** Define a temporary loadCode function.
-        // This runs immediately and captures the code when Flutter calls it.
-        if (!window.loadCode) {
-            window.loadCode = function(code) {
-                // Store the code globally.
-                window.initialQBasicCode = code;
-                console.log("Code captured by temporary loadCode hook.");
-            };
-        }
-    </script>
-    
-    <script language="javascript" src="vfs.js"></script>
-    <script language="javascript" src="gx/gx.js"></script>
-    <script language="javascript" src="qb.js"></script>
-    
-    <script language="javascript">
-        // ⭐️ CRITICAL FIX 2: Explicitly call QB.init()
-        // This is required to define the '_fontmap' object, preventing the crash
-        // when qbjs-ide.js attempts to initialize the IDE.
-        if (typeof QB !== 'undefined' && typeof QB.init === 'function') {
-            QB.init();
-            console.log("QB module explicitly initialized to define _fontmap.");
-        }
-    </script>
-    
-    <script language="javascript" src="qb2js.js"></script>
-    <script language="javascript" src="githelp.js"></script>
-    <script language="javascript" src="qbjs-ide.js"></script>
-    
-    <script language="javascript">
-        // This runs after all IDE scripts are loaded. It attempts to call the *real*
-        // function that puts the code into the editor.
-        if (window.initialQBasicCode) {
-            console.log("Code is captured. Scheduling delayed execution...");
-            const codeToLoad = window.initialQBasicCode;
-
-            // Introduce a short delay to guarantee the IDE and CodeMirror are fully ready.
-            setTimeout(() => {
-                let codeExecuted = false;
-
-                // Attempt 1: Call the global loadCode (if it's the real one)
-                // We check the function's content to ensure it's not our temporary hook.
-                if (typeof window.loadCode === 'function' && window.loadCode.toString().indexOf('initialQBasicCode') === -1) {
-                    window.loadCode(codeToLoad);
-                    console.log("Code executed via global window.loadCode() after delay.");
-                    codeExecuted = true;
-                } 
-                // Attempt 2: Call loadCode via the IDE object
-                else if (typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
-                    IDE.loadCode(codeToLoad);
-                    console.log("Code executed via IDE.loadCode() after delay.");
-                    codeExecuted = true;
-                }
-
-                if (!codeExecuted) {
-                    console.error("ERROR: Still cannot find a valid loadCode function to execute the stored code.");
-                }
-
-                // Clean up the temporary variable
-                delete window.initialQBasicCode; 
-            }, 500); // **500ms Delay Added**
-        }
-    </script>
-    
-</html>
+                <p>Version: <a href="https://github.com/boxgaming/q
