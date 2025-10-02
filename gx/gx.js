@@ -24,7 +24,7 @@ var GX = new function() {
     var _fullscreenFlag = false;
     var __debug = {
         enabled: false,
-        font: 1 // GX.FONT_DEFAULT
+        font: 1
     };
     var _sounds = [];
     var _sound_muted = false;
@@ -36,14 +36,12 @@ var GX = new function() {
     var _touchPos = { x:0, y:0 };
     var _bindTouchToMouse = true;
 
-    var _vfs = new VFS(); // Assuming VFS is defined elsewhere or will be provided
+    var _vfs = new VFS();
     var _vfsCwd = null;
 
-    // javascript specific
     var _onGameEvent = null;
     var _pressedKeys = {};
 
-    // --- NEW: Mobile Input Variables ---
     var _touchControls = {
         up: false,
         down: false,
@@ -51,13 +49,11 @@ var GX = new function() {
         right: false,
         action: false
     };
-    var _isMobileDevice = false; // Flag to detect mobile devices
-    // --- END NEW ---
+    var _isMobileDevice = false;
 
     async function _registerGameEvents(fnEventCallback) {
         _onGameEvent = fnEventCallback;
 
-        // wait for all of the resources to load
         while (!GX.resourcesLoaded()) {
             await _sleep(100);
         }
@@ -72,7 +68,6 @@ var GX = new function() {
     }
 
     function _reset() {
-        // stop any sounds that are currently playing
         _soundStopAll();
         _framerate = 60;
         _bg = [];
@@ -100,7 +95,7 @@ var GX = new function() {
         _fullscreenFlag = false;
         __debug = {
             enabled: false,
-            font: 1 // GX.FONT_DEFAULT
+            font: 1
         };
         _sounds = [];
         _sound_muted = false;
@@ -111,11 +106,9 @@ var GX = new function() {
     
         _vfsCwd = _vfs.rootDirectory();
 
-        // javascript specific
         _onGameEvent = null;
         _pressedKeys = {};
 
-        // --- NEW: Reset touch controls ---
         _touchControls = {
             up: false,
             down: false,
@@ -123,11 +116,8 @@ var GX = new function() {
             right: false,
             action: false
         };
-        // --- END NEW ---
     }
 
-    // Scene Functions
-    // -----------------------------------------------------------------
     function _sceneCreate(width, height) {
         _canvas = document.getElementById("gx-canvas");
         if (!_canvas) {
@@ -170,6 +160,9 @@ var GX = new function() {
             });
 
             _canvas.addEventListener("touchmove", function(event) {
+                if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+                    return;
+                }
                 event.preventDefault();
                 var touch = event.touches[0];
                 var rect = event.target.getBoundingClientRect();
@@ -180,9 +173,12 @@ var GX = new function() {
                     _mousePos = _touchPos;
                     _mouseInputFlag = true;
                 }
-            });
+            }, { passive: false });
     
             _canvas.addEventListener("touchstart", function(event) {
+                if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+                    return;
+                }
                 event.preventDefault();
                 var touch = event.touches[0];
                 var rect = event.target.getBoundingClientRect();
@@ -194,16 +190,19 @@ var GX = new function() {
                     _mouseInputFlag = true;
                     _mousePos = _touchPos;
                 }
-            });
+            }, { passive: false });
     
             _canvas.addEventListener("touchend", function(event) {
+                if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+                    return;
+                }
                 event.preventDefault();
                 _touchInputFlag = false;
                 if (_bindTouchToMouse) {
                     _mouseButtons[0] = 0;
                     _mouseInputFlag = true;
                 }
-            });
+            }, { passive: false });
 
             document.addEventListener("fullscreenchange", function(event) {
                 if (document.fullscreenElement) {
@@ -242,7 +241,7 @@ var GX = new function() {
         _ctx = _canvas.getContext("2d");
 
         var footer = document.getElementById("gx-footer");
-        if (footer) { // Check if footer exists
+        if (footer) {
             footer.style.width = width;
         }
         
@@ -263,7 +262,6 @@ var GX = new function() {
         _customEvent(GX.EVENT_INIT);
     }
 
-    // Resize the scene with the specified pixel width and height.
     function _sceneResize(swidth, sheight) {
         _scene.width = swidth;
         _scene.height = sheight;
@@ -289,8 +287,6 @@ var GX = new function() {
         }
     }
 
-
-    // Scale the scene by the specified scale factor.
     function _sceneScale (scale) {
         var lastScale = _scene.scaleX;
         _scene.scaleX = scale;
@@ -302,7 +298,7 @@ var GX = new function() {
         _ctx.scale(_scene.scaleX, _scene.scaleY);
 
         var footer = document.getElementById("gx-footer");
-        if (footer) { // Check if footer exists
+        if (footer) {
             footer.style.width = _canvas.width;
         }
     }
@@ -314,34 +310,18 @@ var GX = new function() {
     function _sceneColumns() { return _scene.columns; }
     function _sceneRows() { return _scene.rows; }
 
-    
-    // Draw the scene.
-    // This method is called automatically when GX is managing the event/game loop.
-    // Call this method for each page draw event when the event/game loop is being
-    // handled externally.
     function _sceneDraw() {
         if (_map_loading) { return; }
         var frame = _scene.frame % GX.frameRate() + 1;
 
-        // If the screen has been resized, resize the destination screen image
-        //If _Resize And Not GXSceneEmbedded Then
-        //    '_FREEIMAGE _SOURCE
-        //    'SCREEN _NEWIMAGE(_RESIZEWIDTH, _RESIZEHEIGHT, 32)
-        //    GXSceneWindowSize _ResizeWidth, _ResizeHeight
-        //End If
-
-        // Clear the background
 		_ctx.clearRect(0, 0, GX.sceneWidth(), GX.sceneHeight());
 
-        // Draw background images, if present
         for (var bi = 1; bi <= _bg.length; bi++) {
             _backgroundDraw(bi);
         }
 
-        // Call out to any custom screen drawing
         _customDrawEvent(GX.EVENT_DRAWBG);
 
-        // Initialize the renderable entities
         _entities_active = [];
         for (var ei=1; ei <= _entities.length; ei++) {
             var e = _entities[ei-1];
@@ -352,17 +332,12 @@ var GX = new function() {
             }
         }
 
-        // Draw the map tiles
         GX.mapDraw();
 
-        // Call out to any custom screen drawing
         _customDrawEvent(GX.EVENT_DRAWMAP);
 
-        // Draw the entities
         _drawEntityLayer(0);
 
-        // Draw the screen entities which should appear on top of the other game entities
-        // and have a fixed position
         for (var ei = 1; ei <= _entities.length; ei++) {
             var e = _entities[ei-1];
             if (e.screen) {
@@ -375,15 +350,10 @@ var GX = new function() {
             }
         }
 
-        // Call out to any custom screen drawing
         _customDrawEvent(GX.EVENT_DRAWSCREEN);
         if (GX.debug()) { _debugFrameRate(); }
 
-        // Copy the background image to the screen
         _customEvent(GX.EVENT_PAINTBEFORE);
-        //_DontBlend
-        //_PutImage , __gx_scene.image
-        //_Blend
         _customEvent(GX.EVENT_PAINTAFTER);
     }
     
@@ -391,14 +361,10 @@ var GX = new function() {
         _scene.frame++;
         if (_map_loading) { return; }
 
-        // Call custom game update logic
         _customEvent(GX.EVENT_UPDATE);
 
-        // Check for entity movement and collisions
-        // TODO: filter out non-moving entities
         await _sceneMoveEntities();
 
-        // Perform any auto-scene moves
         var sx, sy;
         if (_scene.followMode == GX.SCENE_FOLLOW_ENTITY_CENTER ||
             _scene.followMode == GX.SCENE_FOLLOW_ENTITY_CENTER_X ||
@@ -407,7 +373,6 @@ var GX = new function() {
             sx = (GX.entityX(_scene.followEntity) + GX.entityWidth(_scene.followEntity) / 2) - GX.sceneWidth() / 2;
             if (sx < GX.sceneX() && _scene.followMode == GX.SCENE_FOLLOW_ENTITY_CENTER_X_POS ||
                 sx > GX.sceneX() && _scene.followMode == GX.SCENE_FOLLOW_ENTITY_CENTER_X_NEG) {
-                // don't move the scene
             } else {
                 GX.scenePos(sx, GX.sceneY());
             }
@@ -418,7 +383,6 @@ var GX = new function() {
             GX.scenePos(GX.sceneX(), sy);
         }
 
-        // Check the scene move constraints
         if (_scene.constrainMode == GX.SCENE_CONSTRAIN_TO_MAP) {
             var mwidth = GX.mapColumns() * GX.tilesetWidth();
             var mheight = GX.mapRows() * GX.tilesetHeight();
@@ -441,9 +405,6 @@ var GX = new function() {
         }
     }
 
-    // Start the game loop.
-    // Game events will be sent to the GXOnGameEvent method during the game
-    // loop execution.
     async function _sceneStart() {
 
         _scene.frame = 0;
@@ -482,8 +443,6 @@ var GX = new function() {
         window.requestAnimationFrame(_sceneLoop);
     }
 
-    // Stop the game loop.
-    // This method will cause the game loop to end and return control to the calling program.
     function _sceneStop() {
         _scene.active = false;
     }
@@ -497,18 +456,12 @@ var GX = new function() {
         _scene.constrainMode = mode;
     }
 
-    // Moves the scene position by the number of pixels specified by the dx and dy values.
-    // The default position for a scene is (0,0). Negative x and y values are valid.
-    // A non-zero value for dx will move the scene by the number of pixels specified to the right or left.
-    // A non-zero value for dy will move the scene by the number of pixels specified up or down.
     function _sceneMove (dx, dy) {
         _scene.x = GX.sceneX() + dx;
         _scene.y = GX.sceneY() + dy;
     }
 
-    // Positions the scene at the specified x and y coordinates.
-    // The default position for a scene is (0,0). Negative x and y values are valid.
-    function _scenePos (x, y) {
+	function _scenePos (x, y) {
         _scene.x = x;
         _scene.y = y;
     }
@@ -524,9 +477,6 @@ var GX = new function() {
         }
     }
 
-
-    // Event functions
-    // --------------------------------------------------------------------
     function _customEvent (eventType) {
         var e = {};
         e.event = eventType
@@ -537,31 +487,23 @@ var GX = new function() {
         _customEvent(eventType)
     }
 
-
     function _keyDown(key) {
-        // --- MODIFIED: Check touch controls if on mobile ---
         if (_isMobileDevice) {
             switch (key) {
                 case GX.KEY_UP: return _qbBoolean(_touchControls.up);
                 case GX.KEY_DOWN: return _qbBoolean(_touchControls.down);
                 case GX.KEY_LEFT: return _qbBoolean(_touchControls.left);
                 case GX.KEY_RIGHT: return _qbBoolean(_touchControls.right);
-                case GX.KEY_SPACEBAR: // Assuming spacebar is the action button
+                case GX.KEY_SPACEBAR:
                 case GX.KEY_ENTER:
                     return _qbBoolean(_touchControls.action);
-                // Add other keys if needed for mobile virtual keyboard fallback
                 default:
-                    // Fallback to physical/virtual keyboard events for other keys
                     return _qbBoolean(_pressedKeys[key]);
             }
         }
-        // --- END MODIFIED ---
         return _qbBoolean(_pressedKeys[key]);
     }
 
-    // Frame Functions
-    // -------------------------------------------------------------------
-    // Gets or sets the current frame rate (expressed in frames-per-second or FPS).
     function _frameRate (frameRate) {
         if (frameRate != undefined) {
             _framerate = frameRate;
@@ -569,15 +511,10 @@ var GX = new function() {
         return _framerate;
     }
 
-    // Returns the current frame.
-    // This is a frame counter that starts when GXSceneStart is called.
-    // It is initially set to zero and is incremented on each frame.
     function _frame() {
         return _scene.frame;
     }
 
-    // Image Functions
-    // ------------------------------------------------------------------
     function _imageLoad(filename, callbackFn) {
         for (var i=0; i < _images.length; i++) {
             if (filename == _images[i].src) {
@@ -593,7 +530,6 @@ var GX = new function() {
 
         var file = _vfs.getNode(filename, _vfsCwd);
         if (file && file.type == _vfs.FILE) {
-            //img.src = await _vfs.getDataURL(file);
             _vfs.getDataURL(file).then((dataUrl) => {
                 img.src = dataUrl;
             });
@@ -620,16 +556,6 @@ var GX = new function() {
         _ctx.drawImage(_image(i), xoffset, yoffset, swidth, sheight, x, y, dwidth, dheight);
     }
     
-
-    // Background functions
-    // ----------------------------------------------------
-    // Adds a new background image to the current scene.  Multiple background images may be added to the scene.
-    // Background images are displayed in layers based on the order they are added.
-    // One of the following modes must be specified:
-    //   GXBG_STRETCH - Stretch the background image to the size of the scene.
-    //   GXBG_SCROLL  - Fit the height of the background image to the size of the screen. 
-    //                  Scroll the horizontal position relative to the position on the map.
-    //   GXBG_WRAP    - Continuously wrap the background as the scene is moved.
     function _backgroundAdd (imageFilename, mode) {
         var bg = {};
         bg.mode = mode;
@@ -650,7 +576,7 @@ var GX = new function() {
         bi--;
 
         if (_bg[bi].mode == GX.BG_STRETCH) {
-            _ctx.drawImage(_image(_bg[bi].image), 0, 0, _scene.width, _scene.height); // __gx_scene.image
+            _ctx.drawImage(_image(_bg[bi].image), 0, 0, _scene.width, _scene.height);
         }
 
         else if (_bg[bi].mode == GX.BG_SCROLL) {
@@ -709,14 +635,10 @@ var GX = new function() {
         }
     }
 
-    // Removes all background images from the scene.
     function _backgroundClear() {
         _bg.length = 0;
     }
 
-
-    // Sound Methods
-    // ----------------------------------------------------------------------------
     function _soundClose (sid) {
         _sounds[sid-1].pause();
         _sounds[sid-1] = undefined;
@@ -775,13 +697,10 @@ var GX = new function() {
     function _soundMuted (muted) {
         if (muted != undefined) {
             _sound_muted = muted;
-            // TODO: loop through list of loaded sounds so they can all be muted / unmuted
         }
         return _qbBoolean(_sound_muted);
     }
     
-    // Entity Functions
-    // -----------------------------------------------------------------------------
     function _entityCreate (imageFilename, ewidth, height, seqFrames, uid) {
         var newent = {};
         newent.x = 0;
@@ -832,13 +751,13 @@ var GX = new function() {
             x = ent.x - GX.sceneX()
             y = ent.y - GX.sceneY()
     	}
-        GX.spriteDraw(ent.image, x, y, ent.spriteSeq, ent.spriteFrame, ent.width, ent.height); //, __gx_scene.image)
+        GX.spriteDraw(ent.image, x, y, ent.spriteSeq, ent.spriteFrame, ent.width, ent.height);
     }    
 
     function _entityAnimate (eid, seq, a) {
         _entities[eid-1].animate = a;
         _entities[eid-1].spriteSeq = seq;
-        _entities[eid-1].seqFrames = _entityGetFrames(eid, seq); //_entity_animations[eid-1][seq-1].frames;
+        _entities[eid-1].seqFrames = _entityGetFrames(eid, seq);
         _entities[eid-1].prevFrame = -1;
         if (_entities[eid-1].spriteFrame > _entities[eid-1].seqFrames) {
             _entities[eid-1].spriteFrame = 1;
@@ -903,12 +822,10 @@ var GX = new function() {
     function _entityWidth (eid) { return _entities[eid-1].width; }
     function _entityHeight (eid) { return _entities[eid-1].height; }
     
-    
     function _entityFrameNext (eid) {
         if (_entities[eid-1].animateMode == GX.ANIMATE_SINGLE) {
             if (_entities[eid-1].spriteFrame + 1 > _entities[eid-1].seqFrames) {
                 if (_entities[eid-1].spriteFrame != _entities[eid-1].prevFrame) {
-                    // Fire animation complete event
                     var e = {};
                     e.event = GX.EVENT_ANIMATE_COMPLETE;
                     e.entity = eid;
@@ -950,7 +867,7 @@ var GX = new function() {
         if (frames != undefined) {
             _entity_animations[eid-1][seq-1] = { frames: frames };
         }
-        return _entityGetFrames(eid, seq); //_entity_animations[eid-1][seq-1].frames;
+        return _entityGetFrames(eid, seq);
     }
 
     function _entityType (eid, etype) {
@@ -1015,9 +932,6 @@ var GX = new function() {
         return _entities[eid-1].coBottom;
     }
 
-
-    // Map methods
-    // ------------------------------------------------------------------
     function _mapCreate (columns, rows, layers) {
         _map.columns = columns;
         _map.rows = rows;
@@ -1058,7 +972,6 @@ var GX = new function() {
             }
         }
         catch (ex) {
-            // if the load fails try falling back to the older JSON format
             _map_loading = true;
             var data = null;
             var file = _vfs.getNode(filename, _vfsCwd);
@@ -1103,30 +1016,26 @@ var GX = new function() {
         var layers = readInt(fh);
         var isometric = readInt(fh);
         
-        var slen = readLong(fh); // Corrected: declared slen with var
+        var slen = readLong(fh);
         
         var data = vfs.readData(fh.file, fh.pos, slen)
         fh.pos += data.byteLength;
         
-        // write the raw data out and read it back in as a string
         var ldataFile = vfs.createFile("layer.dat", tmpDir);
         vfs.writeData(ldataFile, data);
         ldataFile = vfs.getNode("layer.dat", tmpDir);
-        var ldstr = vfs.readText(ldataFile);//', ldstr);
+        var ldstr = vfs.readText(ldataFile);
         vfs.removeFile(ldataFile, tmpDir);
         
-        // inflate the compressed data and write it to a temp file
-        var ldata = pako.inflate(vfs.textToData(ldstr)); // Assuming pako is defined elsewhere or will be provided
+        var ldata = pako.inflate(vfs.textToData(ldstr));
         ldataFile = vfs.createFile("layer-i.dat", tmpDir);
         vfs.writeData(ldataFile, ldata);
     
-        // read the data
         ldataFile = vfs.getNode("layer-i.dat", tmpDir);
         ldata = vfs.readData(ldataFile, 0, ldataFile.data.byteLength)
         ldata = new Int16Array(ldata);
         vfs.removeFile(ldataFile, tmpDir);
     
-        // read the tileset data
         var tsVersion = readInt(fh);
         var tsFilename = readString(fh);
         var tsWidth = readInt(fh);
@@ -1140,19 +1049,17 @@ var GX = new function() {
     
         fh.pos++;
         
-        // read the tileset tiles data
         var asize = readInt(fh);
         var tiles = [];
-        for (var i=0; i < 4; i++) { readInt(fh); } //' read the blank 0th element
+        for (var i=0; i < 4; i++) { readInt(fh); }
         for (var i=1; i <= asize; i++) {
-            readInt(fh); // not using id currently
+            readInt(fh);
             tiles.push([readInt(fh), readInt(fh), readInt(fh)]);
         }
     
-        // read the tileset animations data
         asize = readInt(fh);
         var animations = [];
-        for (var i=0; i < 3; i++) { readInt(fh); } //' read the first row
+        for (var i=0; i < 3; i++) { readInt(fh); }
         for (var i=1; i <= asize; i++) {
             animations.push([readInt(fh), readInt(fh), readInt(fh)]);
         }
@@ -1191,7 +1098,7 @@ var GX = new function() {
         
         function readString(fh) {
             var slen = readLong(fh);
-            var data = vfs.readData(fh.file, fh.pos, slen) // Corrected: declared data with var
+            var data = vfs.readData(fh.file, fh.pos, slen)
             var value = String.fromCharCode.apply(null, new Uint8Array(data))
             fh.pos += data.byteLength;
             return value;
@@ -1204,13 +1111,12 @@ var GX = new function() {
         var parentPath = vfs.getParentPath(filename);
         filename = vfs.getFileName(filename);
     
-        // create the parent path
         var dirs = parentPath.split("/");
         var parentDir = vfs.rootDirectory();
         for (var i=0; i < dirs.length; i++) {
             if (dirs[i] == "") { continue; }
             var p = vfs.getNode(dirs[i], parentDir);
-            if (!p) { p = vfs.getNode(dirs[i], parentDir); } // This line seems redundant, p would already be assigned if found
+            if (!p) { p = vfs.getNode(dirs[i], parentDir); }
             parentDir = p;
         }
     
@@ -1220,7 +1126,7 @@ var GX = new function() {
         var file = vfs.createFile(filename, parentDir);
         var fh = { file: file, pos: 0 };
         
-        writeInt(fh, 2); // version
+        writeInt(fh, 2);
         writeInt(fh, GX.mapColumns());
         writeInt(fh, GX.mapRows());
         writeInt(fh, GX.mapLayers());
@@ -1245,44 +1151,39 @@ var GX = new function() {
             }
         }
 
-        var cdata = pako.deflate(ldata); // Assuming pako is defined elsewhere or will be provided
+        var cdata = pako.deflate(ldata);
         writeLong(fh, cdata.byteLength);
         vfs.writeData(fh.file, cdata, fh.pos);
         fh.pos += cdata.byteLength;
 
-        // write the tileset data
-        writeInt(fh, 2); // version
+        writeInt(fh, 2);
         writeString(fh, "tileset.gxi");
         writeInt(fh, GX.tilesetWidth());
         writeInt(fh, GX.tilesetHeight());
         
-        // write the tileset png data
         var tsfile = vfs.getNode(_tileset.filename);
         writeLong(fh, tsfile.data.byteLength);
         vfs.writeData(fh.file, tsfile.data, fh.pos);
         fh.pos += tsfile.data.byteLength;
         fh.pos++;
         
-        // write the tileset tiles data  
         writeInt(fh, _tileset_tiles.length);
         for (var i=0; i < 4; i++) { writeInt(fh, 0); }
         for (var i=0; i < _tileset_tiles.length; i++) {
-            writeInt(fh, 0);//i+1);
+            writeInt(fh, 0);
             writeInt(fh, _tileset_tiles[i].animationId);
             writeInt(fh, _tileset_tiles[i].animationSpeed);
             writeInt(fh, _tileset_tiles[i].animationFrame);
         }
 
-        // write the tileset animations data
         writeInt(fh, _tileset_animations.length);
         for (var i=0; i < 3; i++) { writeInt(fh, 0); }
-        for (var i=0; i < _tileset_animations.length; i++) { // Corrected: loop through _tileset_animations.length
+        for (var i=0; i < _tileset_animations.length; i++) {
             writeInt(fh, _tileset_animations[i].tileId);
             writeInt(fh, _tileset_animations[i].firstFrame);
             writeInt(fh, _tileset_animations[i].nextFrame);
         }
         
-    
         function writeInt(fh, value) {
             var data = new Int16Array([value]).buffer;
             vfs.writeData(fh.file, data, fh.pos);
@@ -1374,7 +1275,6 @@ var GX = new function() {
         _map.layers = GX.mapLayers() - 1;
     }
 
-
     function _mapResize (columns, rows) {
         var tempMap = structuredClone(_map_layers);
         _map_layers = new Array(GX.mapLayers());
@@ -1401,7 +1301,7 @@ var GX = new function() {
                     if (column >= GX.mapColumns() || row >= GX.mapRows()) {
                         _map_layers[layer-1][row * columns + column].tile = 0;
                     }
-                    else { //if (GX.mapColumns() > column && GX.mapRows() > rows) {
+                    else {
                         _map_layers[layer-1][row * columns + column].tile = tempMap[layer-1][row * GX.mapColumns() + column].tile;
                     }
                 }
@@ -1440,7 +1340,7 @@ var GX = new function() {
                 srow = 0;
                 rowOffset = 0;
 
-                for (row = prow; row <= prow + GX.sceneRows() + 1; row++) { //TODO: currently rendering too many rows for isometric maps
+                for (row = prow; row <= prow + GX.sceneRows() + 1; row++) {
                     scol = 0;
                     if (!GX.mapIsometric()) {
                         colOffset = 0;
@@ -1461,17 +1361,16 @@ var GX = new function() {
                             GX.tilesetPos(t, tpos);
                             tx = Math.floor(scol * GX.tilesetWidth() - xoffset - colOffset);
                             ty = Math.floor(srow * GX.tilesetHeight() - yoffset - rowOffset);
-                            GX.spriteDraw(GX.tilesetImage(), tx, ty, tpos.y, tpos.x, GX.tilesetWidth(), GX.tilesetHeight());//, __gx_scene.image
+                            GX.spriteDraw(GX.tilesetImage(), tx, ty, tpos.y, tpos.x, GX.tilesetWidth(), GX.tilesetHeight());
                         }
                         scol = scol + 1;
                     }
                     srow = srow + 1;
                 }
-            } // layer is not hidden
+            }
             _drawEntityLayer(li);
         }
 
-        // Perform tile animation
         for (t = 1; t <= GX.tilesetColumns() * GX.tilesetRows(); t++) {
             _tileFrameNext(t);
         }
@@ -1506,58 +1405,11 @@ var GX = new function() {
         }
         return _map_layers[layer-1][mpos].tile;
     }
-/*
-
-    Function GXMapTileDepth (col As Integer, row As Integer)
-        If col < 0 Or col >= GXMapColumns Or row < 0 Or row >= GXMapRows Then
-            GXMapTileDepth = 0
-        Else
-            Dim layer As Integer
-            For layer = GXMapLayers To 1 Step -1
-                If GXMapTile(col, row, layer) > 0 Then
-                    GXMapTileDepth = layer
-                    Exit Function
-                End If
-            Next layer
-            GXMapTileDepth = 0
-        End If
-    End Function
-
-    Sub GXMapTileAdd (col As Integer, row As Integer, tile As Integer)
-        If tile < 1 Then Exit Sub
-        'TODO: check for tile greater than max and exit early
-
-        If (col >= 0 And col <= GXMapColumns And row >= 0 And row <= GXMapRows) Then
-            Dim layer As Integer
-            For layer = 1 To GXMapLayers
-                If GXMapTile(col, row, layer) = 0 Then
-                    GXMapTile col, row, layer, tile
-                    Exit Sub
-                End If
-            Next layer
-        End If
-    End Sub
-
-    Sub GXMapTileRemove (col As Integer, row As Integer)
-        If (col >= 0 And col <= GXMapColumns And row >= 0 And row < GXMapRows) Then
-            Dim layer As Integer
-            For layer = GXMapLayers To 1 Step -1
-                If GXMapTile(col, row, layer) Then
-                    GXMapTile col, row, layer, 0
-                    Exit Sub
-                End If
-            Next layer
-        End If
-    End Sub
-    */
 
     function _mapVersion() {
         return _map.version
     }
 
-
-    // Tileset Methods
-    // ----------------------------------------------------------------------------
     async function _tilesetCreate (tilesetFilename, tileWidth, tileHeight, tiles, animations) {
         await GX.tilesetReplaceImage(tilesetFilename, tileWidth, tileHeight);
 
@@ -1569,7 +1421,7 @@ var GX = new function() {
                     id: i+1,
                     animationId: tile[0],
                     animationSpeed: tile[1],
-                    animationFrame: tile[2] // Corrected: tile[2] instead of tiles[2]
+                    animationFrame: tile[2]
                 });
             }
         }
@@ -1609,98 +1461,12 @@ var GX = new function() {
             imgLoaded = true;
         });
         var waitMillis = 0;
-        while (!imgLoaded && waitMillis < 3000) { // Corrected: use && instead of &
+        while (!imgLoaded && waitMillis < 3000) {
             await GX.sleep(10);
             waitMillis += 10;
         }
     }
-/*
-    Sub GXTilesetLoad (filename As String)
-        Open filename For Binary As #1
-        __GX_TilesetLoad
-        Close #1
-    End Sub
 
-    Sub __GX_TilesetLoad
-        Dim version As Integer
-        version = 1
-
-        ' Save the tileset version
-        Get #1, , version
-
-        ' Save the tileset image meta-data
-        __gx_tileset.filename = __GX_ReadString
-        Get #1, , __gx_tileset.width
-        Get #1, , __gx_tileset.height
-
-        ' Read the tileset image data and save to a temporary location
-        Dim tsize As Long
-        Get #1, , tsize
-        Dim tmpfile As String
-        Dim tilesetFilename As String
-        Dim bytes(tsize) As _Unsigned _Byte
-        tmpfile = GXFS_RemoveFileExtension(GXFS_GetFilename(GXTilesetFilename)) + ".gxi"
-        If Not _DirExists("./tmp") Then MkDir ("./tmp")
-        tilesetFilename = "./tmp/" + tmpfile
-        Get #1, , bytes()
-        Open tilesetFilename For Binary As #2
-        Put #2, , bytes()
-        Close #2
-        GXTilesetCreate tilesetFilename, GXTilesetWidth, GXTilesetHeight
-
-        ' Read the tileset tile data
-        Dim asize As Integer
-        Get #1, , asize
-        ReDim __gx_tileset_tiles(asize) As GXTile
-        Get #1, , __gx_tileset_tiles()
-
-        ' Read the tileset animation data
-        Get #1, , asize
-        ReDim __gx_tileset_animations(asize) As GXTileFrame
-        Get #1, , __gx_tileset_animations()
-    End Sub
-
-    Sub GXTilesetSave (filename As String)
-        Open filename For Binary As #1
-        __GX_TilesetSave
-        Close #1
-    End Sub
-
-    Sub __GX_TilesetSave
-        Dim version As Integer
-        version = 1
-
-        ' Save the tileset version
-        Put #1, , version
-
-        ' Save the tileset image meta-data
-        __GX_WriteString GXTilesetFilename
-        Put #1, , __gx_tileset.width
-        Put #1, , __gx_tileset.height
-
-        ' Save the tileset image data
-        Dim tsize As Long
-        Open GXTilesetFilename For Binary As #2
-        tsize = LOF(2)
-        Put #1, , tsize
-
-        Dim bytes(tsize) As _Unsigned _Byte
-        Get #2, , bytes()
-        Put #1, , bytes()
-        Close #2
-
-        ' Save the tileset tile data
-        Dim asize As Integer
-        asize = UBound(__gx_tileset_tiles)
-        Put #1, , asize
-        Put #1, , __gx_tileset_tiles()
-
-        ' Save the tileset animation data
-        asize = UBound(__gx_tileset_animations)
-        Put #1, , asize
-        Put #1, , __gx_tileset_animations()
-    End Sub
-*/
     function _tilesetPos (tilenum, p) {
         if (GX.tilesetColumns() == 0) {
             p.x = 0;
@@ -1719,7 +1485,6 @@ var GX = new function() {
     function _tilesetFilename() { return _tileset.filename; }
     function _tilesetImage() { return _tileset.image; }
 
-
     function _tilesetAnimationCreate (tileId, animationSpeed) {
         var frameId = _tileset_animations.length;
         _tileset_animations[frameId] = { tileId: 0, firstFrame: 0, nextFrame: 0 };
@@ -1732,7 +1497,6 @@ var GX = new function() {
     function _tilesetAnimationAdd (firstTileId, addTileId) {
         var firstFrame = _tileset_tiles[firstTileId-1].animationId;
 
-        // find the last frame
         var lastFrame  = firstFrame;
         while (_tileset_animations[lastFrame-1].nextFrame > 0) {
             lastFrame = _tileset_animations[lastFrame-1].nextFrame;
@@ -1746,12 +1510,10 @@ var GX = new function() {
     }
 
     function _tilesetAnimationRemove (firstTileId) {
-        // TODO: replace with implementation that will remove unused
-        //       animation data from the array
         _tileset_tiles[firstTileId-1].animationId = 0;
     }
 
-    function _tilesetAnimationFrames (tileId, tileFrames /* QB Array */) {
+    function _tilesetAnimationFrames (tileId, tileFrames) {
         if (tileId < 0 || tileId > GX.tilesetRows() * GX.tilesetColumns()) { return 0; }
 
         GX.resizeArray(tileFrames, [{l:0,u:0}], 0);
@@ -1786,7 +1548,6 @@ var GX = new function() {
         return _tileset_animations[currFrame-1].tileId;
     }
 
-
     function _tileFrameNext (tileId) {
         if (tileId < 0 || tileId > _tileset_tiles.length) { return; }
         if (_tileset_tiles[tileId-1].animationId == 0) { return; }
@@ -1810,9 +1571,6 @@ var GX = new function() {
         }
     }    
 
-
-    // Miscellaneous Private Methods
-    // ---------------------------------------------------------------------------
     function _entityCollide (eid1, eid2) {
         return _rectCollide(
             GX.entityX(eid1), GX.entityY(eid1), GX.entityWidth(eid1), GX.entityHeight(eid1),
@@ -1843,10 +1601,8 @@ var GX = new function() {
 
         for (var eid = 1; eid <= _entities.length; eid++) {
             if (!_entities[eid-1].screen) {
-                //alert(eid + ":" + GX.entityVX(eid));
                 await _sceneMoveEntity(eid);
 
-                // apply the move vector to the entity's position
                 if (GX.entityVX(eid)) {
                     _entities[eid-1].x = GX.entityX(eid) + GX.entityVX(eid) * frameFactor;
                 }
@@ -1859,26 +1615,22 @@ var GX = new function() {
 
     async function _sceneMoveEntity(eid) {
         var tpos = {};
-        var centity = { id: 0 }; // INTEGER
-        var tmove = 0;   // INTEGER
-        var testx = 0;   // INTEGER
-        var testy = 0 ;  // INTEGER
+        var centity = { id: 0 };
+        var tmove = 0;
+        var testx = 0;
+        var testy = 0 ;
 
-        // Test upward movement
         if (GX.entityVY(eid) < 0) {
             testy = Math.round(GX.entityVY(eid) / GX.frameRate());
             if (testy > -1) { testy = -1; }
             tmove = Math.round(await _entityTestMove(eid, 0, testy, tpos, centity));
             if (tmove == 0) {
                 if (GX.entityApplyGravity(eid)) {
-                    // reverse the motion
                     GX.entityVY(eid, GX.entityVY(eid) * -.5);
                 } else {
-                    // stop the motion
                     GX.entityVY(eid, 0);
                 }
 
-                // don't let the entity pass into the collision entity or tile
                 if (centity.id > 0) {
                     GX.entityPos(eid, GX.entityX(eid), GX.entityY(centity.id) - GX.entityCollisionOffsetBottom(centity.id) + GX.entityHeight(centity.id) - GX.entityCollisionOffsetTop(eid));
                 } else {
@@ -1888,16 +1640,13 @@ var GX = new function() {
         }
 
         if (!GX.entityApplyGravity(eid)) {
-            // Test downward movement
             if (GX.entityVY(eid) > 0) {
                 testy = Math.round(GX.entityVY(eid) / GX.frameRate());
                 if (testy < 1) { testy = 1; }
                 tmove = Math.round(await _entityTestMove(eid, 0, testy, tpos, centity));
                 if (tmove == 0) {
-                    // stop the motion
                     GX.entityVY(eid, 0);
 
-                    // don't let the entity pass into the collision entity or tile
                     if (centity.id > 0) {
                         GX.entityPos(eid, GX.entityX(eid), GX.entityY(centity.id) + GX.entityCollisionOffsetTop(centity.id) - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
                     }
@@ -1908,31 +1657,25 @@ var GX = new function() {
             }
         } else {
 
-            // Apply gravity
             testy = Math.round(GX.entityVY(eid) / GX.frameRate());
             if (testy < 1) { testy = 1; }
             tmove = Math.round(await _entityTestMove(eid, 0, testy, tpos, centity));
             if (tmove == 1) {
-                // calculate the number of seconds since the gravity started being applied
                 var t = (GX.frame() - _entities[eid-1].jumpstart) / GX.frameRate();
-                // adjust the y velocity for gravity
                 var g = _gravity * t ** 2 / 2;
                 if (g < 1) { g = 1; }
                 _entities[eid-1].vy = GX.entityVY(eid) + g;
                 if (GX.entityVY(eid) > _terminal_velocity) { GX.entityVY(eid, _terminal_velocity); }
 
             } else if (GX.entityVY(eid) >= 0) {
-                //alert("STOP");
                 _entities[eid-1].jumpstart = GX.frame();
                 if (GX.entityVY(eid) != 0) {
                     GX.entityVY(eid, 0);
 
-                    // don't let the entity fall through the collision entity or tile
                     if (centity.id > 0) {
                         GX.entityPos(eid, GX.entityX(eid), GX.entityY(centity.id) + GX.entityCollisionOffsetTop(centity.id) - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
                     }
                     else {
-                        //alert("pos: " + eid + ":" + tpos.y);
                         GX.entityPos(eid, GX.entityX(eid), tpos.y * GX.tilesetHeight() - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
                     }
                 }
@@ -1940,15 +1683,12 @@ var GX = new function() {
         }
 
         if (GX.entityVX(eid) > 0) {
-            // Test right movement
             testx = Math.round(GX.entityVX(eid) / GX.frameRate());
             if (testx < 1) { testx = 1 };
             tmove = Math.round(await _entityTestMove(eid, testx, 0, tpos, centity));
             if (tmove == 0) {
-                // stop the motion
                 GX.entityVX(eid, 0);
 
-                // don't let the entity pass into the collision entity or tile
                 if (centity.id > 0) {
                     GX.entityPos(eid, GX.entityX(centity.id) + GX.entityCollisionOffsetLeft(centity.id) - GX.entityWidth(eid) + GX.entityCollisionOffsetRight(eid), GX.entityY(eid));
                 }
@@ -1958,15 +1698,12 @@ var GX = new function() {
             }
 
         } else if (GX.entityVX(eid) < 0) {
-            // Test left movement
             testx = Math.round(GX.entityVX(eid) / GX.frameRate());
             if (testx > -1) { testx = -1 };
             tmove = Math.round(await _entityTestMove(eid, testx, 0, tpos, centity));
             if (tmove == 0) {
-                // stop the motion
                 GX.entityVX(eid, 0);
 
-                // don't let the entity pass into the collision entity or tile
                 if (centity.id > 0) {
                     GX.entityPos(eid, GX.entityX(centity.id) + GX.entityWidth(centity.id) - GX.entityCollisionOffsetRight(centity.id) - GX.entityCollisionOffsetLeft(eid), GX.entityY(eid));
                 }
@@ -1987,9 +1724,7 @@ var GX = new function() {
 
         var move = 1;
 
-        // Test for tile collision
         var tile = 0;
-        //for (var i = 0; i < tcount; i++) {
         for (var i = 0; i < tiles.length; i++) {
             var e = {};
             e.entity = entity;
@@ -2001,13 +1736,11 @@ var GX = new function() {
             await _onGameEvent(e);
             if (e.collisionResult) {
                 move = 0;
-                //tpos = tiles[i];
                 tpos.x = tiles[i].x;
                 tpos.y = tiles[i].y;
             }
         }
 
-        // Test for entity collision
         var entities = [];
         var ecount = _entityCollision(entity, mx, my, entities);
         for (var i=0; i < ecount; i++) {
@@ -2043,7 +1776,6 @@ var GX = new function() {
 
         for (var i = 1; i <= _entities.length; i++) {
             if (i != eid) {
-                // TODO: only include entities that should be considered (e.g. visible, non-screen-level)
                 if (_rectCollide(GX.entityX(eid) + GX.entityCollisionOffsetLeft(eid) + movex, 
                     GX.entityY(eid) + GX.entityCollisionOffsetTop(eid) + movey, 
                     GX.entityWidth(eid) - GX.entityCollisionOffsetLeft(eid) - GX.entityCollisionOffsetRight(eid) - 1,
@@ -2061,16 +1793,15 @@ var GX = new function() {
     }
 
     function _entityCollisionTiles(entity, movex, movey, tiles, tcount) {
-        var tx = 0;  // INTEGER
-        var ty = 0;  // INTEGER
-        var tx0 = 0; // INTEGER
-        var txn = 0; // INTEGER
-        var ty0 = 0; // INTEGER
-        var tyn = 0; // INTEGER
-        var x = 0;   // INTEGER
-        var y = 0;   // INTEGER
-        var i = 0;   // INTEGER
-        //var tiles = [];
+        var tx = 0;
+        var ty = 0;
+        var tx0 = 0;
+        var txn = 0;
+        var ty0 = 0;
+        var tyn = 0;
+        var x = 0;
+        var y = 0;
+        var i = 0;
 
         if (movex != 0) {
             var startx = Math.round(-1 + GX.entityCollisionOffsetLeft(entity));
@@ -2079,10 +1810,6 @@ var GX = new function() {
             }
             tx = Math.floor((GX.entityX(entity) + startx) / GX.tilesetWidth())
 
-            // This is a real brute force way to find the intersecting tiles.
-            // We're basically testing every pixel along the edge of the entity's
-            // collision rect and incrementing the collision tile count.
-            // With a bit more math I'm sure we could avoid some extra loops here.
             tcount = 0;
             ty0 = 0;
             for (y = GX.entityY(entity) + GX.entityCollisionOffsetTop(entity); y <= GX.entityY(entity) + GX.entityHeight(entity) - 1 - GX.entityCollisionOffsetBottom(entity); y++) {
@@ -2094,7 +1821,6 @@ var GX = new function() {
                 tyn = ty;
             }
 
-            // Add the range of detected tile positions to the return list
             for (ty = ty0; ty <= tyn; ty++) {
                 tiles.push({
                     x: tx,
@@ -2110,10 +1836,6 @@ var GX = new function() {
             }
             ty = Math.floor((GX.entityY(entity) + starty) / GX.tilesetHeight());
 
-            // This is a real brute force way to find the intersecting tiles.
-            // We're basically testing every pixel along the edge of the entity's
-            // collision rect and incrementing the collision tile count.
-            // With a bit more math I'm sure we could avoid some extra loops here.
             tcount = 0;
             tx0 = 0;
             for (x = GX.entityX(entity) + GX.entityCollisionOffsetLeft(entity); x <= GX.entityX(entity) + GX.entityWidth(entity) - 1 - GX.entityCollisionOffsetRight(entity); x++) {
@@ -2158,36 +1880,23 @@ var GX = new function() {
         return _qbBoolean(_fullscreenFlag);
     }
 
-
-
-    // Bitmap Font Methods
-    // ----------------------------------------------------------------------------
     function _fontCreate(filename, charWidth, charHeight, charref) {
         var font = {
-            // Create a new game entity
             eid: GX.entityCreate(filename, charWidth, charHeight, 1),
             charSpacing: 0,
             lineSpacing: 0
         };
 
-        // Hide the entity as we will not be displaying it as a normal sprite
         GX.entityVisible(font.eid, false);
         _fonts.push(font);
         _font_charmap.push(new Array(256).fill({x:0,y:0}));
         var fid = _fonts.length;
 
-        // map the character codes to the image location
         _fontMapChars(fid, charref);
 
         return fid;
     }
-/*
-    Sub GXFontCreate (filename As String, charWidth As Integer, charHeight As Integer, charref As String, uid As String)
-        Dim fid As Integer
-        fid = GXFontCreate(filename, charWidth, charHeight, charref)
-        __GX uid, fid, GXTYPE_FONT
-    End Sub
-*/
+
     function _fontWidth (fid) {
         return GX.entityWidth(_fonts[fid-1].eid);
     }
@@ -2212,7 +1921,6 @@ var GX = new function() {
 
     function _drawText (fid, sx, sy, s) {
         if (s == undefined) { return; }
-        //alert(fid);
         var x = sx;
         var y = sy;
         var font = _fonts[fid-1];
@@ -2220,13 +1928,13 @@ var GX = new function() {
 
         for (var i = 0; i < s.length; i++) {
             var a = s.charCodeAt(i);
-            if (a == 10) { // Line feed, move down to the next line
+            if (a == 10) {
                 x = sx;
                 y = y + e.height + font.lineSpacing;
-            } else if (a != 13) { // Ignore Carriage Return
-                if (a != 32) { // Space character, nothing to draw
+            } else if (a != 13) {
+                if (a != 32) {
                     var cpos = _font_charmap[fid-1][a];
-                    GX.spriteDraw(e.image, x, y, cpos.y, cpos.x, e.width, e.height); //, __gx_scene.image '0
+                    GX.spriteDraw(e.image, x, y, cpos.y, cpos.x, e.width, e.height);
                 }
                 x = x + e.width + font.charSpacing;
             }
@@ -2264,11 +1972,7 @@ var GX = new function() {
         GX.fontLineSpacing(fid, 1);
     }
 
-    // Input Device Methods
-    // -----------------------------------------------------------------
     function _mouseInput() {
-        // TODO: need to decide whether to keep this here
-        //       it is not needed for GX - only to support QB64
         var mi = _mouseInputFlag;
         _mouseInputFlag = false;
         return mi;
@@ -2283,8 +1987,6 @@ var GX = new function() {
     }
 
     function _mouseButton(button) {
-        // TODO: need to decide whether to keep this here
-        //       it is not needed for GX - only to support QB64
         return _mouseButtons[button-1];
     }
 
@@ -2313,69 +2015,14 @@ var GX = new function() {
     }
 
     function _deviceInputTest(di) {
-        if (di.deviceType == GX.DEVICE_KEYBOARD) { // Corrected: use == for comparison
-            if (di.inputType == GX.DEVICE_BUTTON) { // Corrected: use == for comparison
+        if (di.deviceType == GX.DEVICE_KEYBOARD) {
+            if (di.inputType == GX.DEVICE_BUTTON) {
                 return GX.keyDown(di.inputId);
             }
         }
         return _qbBoolean(false);
     }
 
-/*
-    Function GXDeviceInputTest% (di As GXDeviceInput)
-        Dim dcount As Integer
-        dcount = _Devices
-
-        If di.deviceId < 1 Or di.deviceId > dcount Then
-            GXDeviceInputTest = GX_FALSE
-            Exit Function
-        End If
-
-        Dim result As Integer
-        Dim dactive As Integer
-        dactive = _DeviceInput(di.deviceId)
-
-        If di.inputType = GXDEVICE_BUTTON Then
-            $If WIN Then
-                If _Button(di.inputId) = di.inputValue Then
-                    result = GX_TRUE
-                End If
-            $Else
-                If di.deviceType = GXDEVICE_KEYBOARD Then
-                result = __GX_DeviceKeyDown(di.inputId)
-                Else
-                If _Button(di.inputId) = di.inputValue Then
-                result = GX_TRUE
-                End If
-                End If
-            $End If
-
-        ElseIf di.inputType = GXDEVICE_AXIS Then
-            If _Axis(i.inputId) = di.inputValue Then
-                result = GX_TRUE
-            End If
-        End If
-
-        GXDeviceInputTest = result
-    End Function
-
-    $If LINUX OR MAC Then
-        Function __GX_DeviceKeyDown% (inputId As Integer)
-        Dim k As KeyEntry
-        k = __gx_keymap(inputId)
-
-        Dim result As Integer
-        result = GX_FALSE
-        If _KeyDown(k.value) Then
-        result = GX_TRUE
-        ElseIf k.shift <> 0 Then
-        If _KeyDown(k.shift) Then result = GX_TRUE
-        End If
-
-        __GX_DeviceKeyDown = result
-        End Function
-    $End If
-*/
     function _keyInput (k, di) {
         di.deviceId = GX.DEVICE_KEYBOARD;
         di.deviceType = GX.DEVICE_KEYBOARD;
@@ -2383,158 +2030,7 @@ var GX = new function() {
         di.inputId = k;
         di.inputValue = -1;
     }
-/*
-    Function GXKeyDown% (k As Long)
-        Dim di As GXDeviceInput
-        GXKeyInput k, di
-        GXKeyDown = GXDeviceInputTest(di)
-    End Function
 
-    Sub GXDeviceInputDetect (di As GXDeviceInput)
-        Dim found As Integer
-        Dim dcount As Integer
-        dcount = _Devices
-
-        While _DeviceInput
-            ' Flush the input buffer
-        Wend
-
-        Do
-            _Limit 90
-            Dim x As Integer
-            x = _DeviceInput
-            If x Then
-                Dim i As Integer
-                For i = 1 To _LastButton(x)
-                    If _Button(i) Then
-                        di.deviceId = x
-                        di.deviceType = __GX_DeviceTypeName(x)
-                        di.inputType = GXDEVICE_BUTTON
-                        di.inputId = i
-                        di.inputValue = _Button(i)
-                        found = 1
-                        Exit Do
-                    End If
-                Next i
-
-                For i = 1 To _LastAxis(x)
-                    If _Axis(i) And Abs(_Axis(i)) = 1 Then
-                        di.deviceId = x
-                        di.deviceType = __GX_DeviceTypeName(x)
-                        di.inputType = GXDEVICE_AXIS
-                        di.inputId = i
-                        di.inputValue = _Axis(i)
-                        found = 1
-                        Exit Do
-                    End If
-                Next i
-
-                For i = 1 To _LastWheel(x)
-                    If _Wheel(i) Then
-                        di.deviceId = x
-                        di.deviceType = __GX_DeviceTypeName(x)
-                        di.inputType = GXDEVICE_WHEEL
-                        di.inputId = i
-                        di.inputValue = _Wheel(i)
-                        found = 1
-                        Exit Do
-                    End If
-                Next i
-            End If
-
-            $If LINUX OR MAC Then
-                ' No device input found, as a workaround let's loop through the key map looking for a keydown
-                For i = UBound(__gx_keymap) To 1 Step -1
-                Dim keyIsDown As Integer, inputId As Integer
-                keyIsDown = GX_FALSE
-                If __gx_keymap(i).value <> 0 Then
-                'If i > 29 Then
-                '    Print i; __gx_keymap(i).value
-                'End If
-                If _KeyDown(__gx_keymap(i).value) Then
-                keyIsDown = GX_TRUE
-                inputId = i
-                ElseIf __gx_keymap(i).shift <> 0 Then
-                If _KeyDown(__gx_keymap(i).shift) Then
-                keyIsDown = GX_TRUE
-                inputId = i
-                End If
-                End If
-                End If
-                If keyIsDown Then
-                di.deviceId = GXDEVICE_KEYBOARD
-                di.deviceType = __GX_DeviceTypeName(GXDEVICE_KEYBOARD)
-                di.inputType = GXDEVICE_BUTTON
-                di.inputId = inputId
-                di.inputValue = GX_TRUE
-                found = 1
-                Exit Do
-                End If
-                Next i
-            $End If
-        Loop Until found
-
-        While _DeviceInput
-            '    Flush the device input buffer
-        Wend
-        _KeyClear
-
-    End Sub
-
-    Function __GX_DeviceTypeName% (deviceId)
-        Dim dname As String
-        dname = _Device$(deviceId)
-
-        If InStr(dname, "[KEYBOARD]") Then
-            __GX_DeviceTypeName = GXDEVICE_KEYBOARD
-        ElseIf InStr(dname, "[MOUSE]") Then
-            __GX_DeviceTypeName = GXDEVICE_MOUSE
-        ElseIf InStr(dname, "[CONTROLLER]") Then
-            __GX_DeviceTypeName = GXDEVICE_CONTROLLER
-        End If
-    End Function
-
-    Function GXDeviceName$ (deviceId As Integer)
-        Dim nstart As Integer, nend As Integer
-        Dim dname As String
-        dname = _Device$(deviceId)
-        If InStr(dname, "[CONTROLLER]") Then
-            nstart = InStr(dname, "[NAME]")
-            If nstart = 0 Then
-                dname = "Controller"
-            Else
-                nstart = nstart + 7
-                nend = InStr(nname, dname, "]]") // Corrected: use dname instead of nname
-                dname = _Trim$(Mid$(dname, nstart, nend - nstart))
-            End If
-        ElseIf InStr(dname, "[MOUSE]") Then
-            dname = "Mouse"
-        ElseIf InStr(dname, "[KEYBOARD]") Then
-            dname = "Keyboard"
-        End If
-        GXDeviceName = dname
-    End Function
-
-    Function GXDeviceTypeName$ (dtype As Integer)
-        Dim dtypename As String
-        Select Case dtype
-            Case GXDEVICE_KEYBOARD: dtypename = "KEYBOARD"
-            Case GXDEVICE_MOUSE: dtypename = "MOUSE"
-            Case GXDEVICE_CONTROLLER: dtypename = "CONTROLLER"
-        End Select
-        GXDeviceTypeName = dtypename
-    End Function
-
-    Function GXInputTypeName$ (itype As Integer)
-        Dim itypename As String
-        Select Case itype
-            Case GXDEVICE_BUTTON: itypename = "BUTTON"
-            Case GXDEVICE_AXIS: itypename = "AXIS"
-            Case GXDEVICE_WHEEL: itypename = "WHEEL"
-        </Select>
-        GXInputTypeName = itypename
-    End Function
-*/
     function _keyButtonName (inputId ) {
         var k;
         switch (inputId) {
@@ -2641,15 +2137,11 @@ var GX = new function() {
             case GX.KEY_MENU: k = "Menu"; break;
             case GX.KEY_LALT: k = "LAlt"; break;
             case GX.KEY_RALT: k = "RAlt"; break;
-            default: k = inputId; break; // Fallback for unknown keys
+            default: k = inputId; break;
         }
         return k;
     }
 
-
-
-    // Debugging Methods
-    // --------------------------------------------------------------------------
     function _debug(enabled) {
         if (enabled != undefined) {
             __debug.enabled = enabled;
@@ -2657,15 +2149,6 @@ var GX = new function() {
         return _qbBoolean(__debug.enabled);
     }
 
-/*
-    Function GXDebugScreenEntities
-        GXDebugScreenEntities = __gx_debug.screenEntities
-    End Function
-
-    Sub GXDebugScreenEntities (enabled As Integer)
-        __gx_debug.screenEntities = enabled
-    Sub
-*/
     function _debugFont(font) {
         if (font != undefined) {
             __debug.font = font;
@@ -2694,66 +2177,10 @@ var GX = new function() {
         return _debug.entityCollisionColor;
     }
 
-    /*
-    Sub __GX_DebugMapTile
-        Dim t As Integer, tx As Long, ty As Long, depth As Integer, i As Integer
-        Dim tpos As GXPosition
-        '__GX_MapTilePosAt _MOUSEX, _MOUSEY, tpos
-        GXMapTilePosAt GXMouseX, GXMouseY, tpos
-        depth = GXMapTileDepth(tpos.x, tpos.y)
-        tx = tpos.x * GXTilesetWidth - GXSceneX
-        ty = tpos.y * GXTilesetHeight - GXSceneY
-
-        'Dim cdest As Long
-        'cdest = _Dest
-        '_Dest __gx_scene.image
-        Line (tx, ty)-(tx + GXTilesetWidth - 1, ty + GXTilesetHeight - 1), GXDebugTileBorderColor, B , &B1010101010101010
-        GXDrawText GXDebugFont, tx, ty - 8, "(" + _Trim$(Str$(tpos.x)) + "," + _Trim$(Str$(tpos.y)) + ")"
-        For i = 1 To depth
-            t = GXMapTile(tpos.x, tpos.y, i)
-            GXDrawText GXDebugFont, tx, ty + GXTilesetHeight + 1 + (i - 1) * 8, _Trim$(Str$(i)) + ":" + _Trim$(Str$(t))
-        Next i
-
-        '_Dest cdest
-    End Sub
-
-    Sub __GX_DebugEntity (ent As GXEntity, x, y)
-        If ent.screen And Not GXDebugScreenEntities Then Exit Sub
-
-        'Dim odest As Long
-        'odest = _Dest
-        '_Dest __gx_scene.image
-
-        ' Display the entity's position
-        GXDrawText GXDebugFont, x, y - 8, "(" + __GX_DebugRound(ent.x, 2) + "," + __GX_DebugRound(ent.y, 2) + ")"
-
-        ' Draw the entity's bounding rect
-        Line (x, y)-(x + ent.width - 1, y + ent.height - 1), GXDebugEntityBorderColor, B , &B1010101010101010
-
-        ' Draw the entity's collision rect
-        Line (x + ent.coLeft, y + ent.coTop)-(x + ent.width - 1 - ent.coRight, y + ent.height - 1 - ent.coBottom), GXDebugEntityCollisionColor, B ', &B1010101010101010
-
-        '_Dest odest
-    End Sub
-
-    Function __GX_DebugRound$ (n As Double, decimalPlaces As Integer)
-        Dim n2 As Long
-        n2 = _Round(n * 10 ^ decimalPlaces)
-        If n2 = 0 Then
-            __GX_DebugRound = "0." + String$(decimalPlaces, "0")
-        Else
-            Dim ns As String, decimal As String
-            ns = _Trim$(Str$(n2))
-            decimal = Right$(ns, decimalPlaces)
-            ns = Left$(ns, Len(ns) - decimalPlaces)
-            __GX_DebugRound = ns + "." + decimal
-        End If
-    End Function
-*/
     function _debugFrameRate() {
         var frame = String(GX.frame());
         var frameRate = String(GX.frameRate());
-        frameRate = frameRate.padStart(frame.length - frameRate.length, " "); //+ frameRate
+        frameRate = frameRate.padStart(frame.length - frameRate.length, " ");
 
         GX.drawText(GX.debugFont(), GX.sceneWidth() - (frame.length + 6) * 6 - 1, 1, "FRAME:" + frame);
         GX.drawText(GX.debugFont(), GX.sceneWidth() - (frameRate.length + 4) * 6 - 1, 9, "FPS:" + frameRate);
@@ -2766,86 +2193,58 @@ var GX = new function() {
     function _init() {
         _vfsCwd = _vfs.rootDirectory();
 
-        // init
         _fontCreateDefault(GX.FONT_DEFAULT);
         _fontCreateDefault(GX.FONT_DEFAULT_BLACK);
 
-        // keyboard event initialization
-        // detect key state for KeyDown method
         addEventListener("keyup", function(event) { 
             const activeElement = document.activeElement;
             const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
 
-            // Only prevent default if the game is active AND we are NOT typing into an input field
             if (_scene.active && !isTypingIntoInput) {
                 event.preventDefault();
             }
-            // Always update pressedKeys, regardless of input focus, for game logic
-            _pressedKeys[event.code] = false;
+            if (!isTypingIntoInput) {
+                _pressedKeys[event.code] = false;
+            }
         });
-
         addEventListener("keydown", function(event) { 
             const activeElement = document.activeElement;
             const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
 
-            // Only prevent default if the game is active AND we are NOT typing into an input field
             if (_scene.active && !isTypingIntoInput) {
                 event.preventDefault();
             }
-            // Always update pressedKeys, regardless of input focus, for game logic
-            _pressedKeys[event.code] = true;
+            if (!isTypingIntoInput) {
+                _pressedKeys[event.code] = true;
+            }
         });
 
-        // --- NEW: Mobile device detection and touch control setup ---
         _isMobileDevice = /Mobi|Android/i.test(navigator.userAgent);
         if (_isMobileDevice) {
             console.log("Mobile device detected. Initializing touch controls.");
-            
-            // MODIFIED: This touchstart listener should NOT blur input fields if they are already focused.
-            // It should only prevent default behavior for touches that are NOT on input/textarea elements.
             document.body.addEventListener('touchstart', function(e) {
                 const activeElement = document.activeElement;
-                const isTouchingInput = (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
-
-                // If the touch is on an input/textarea, allow default behavior (which includes showing keyboard)
-                // If the touch is not on an input/textarea, and an input/textarea is currently focused,
-                // we might want to blur it to hide the keyboard, but only if the touch is outside the input.
-                // For simplicity and to ensure keyboard appears, we will only prevent default if it's not an input.
-                if (!isTouchingInput) {
-                    e.preventDefault(); // Prevent default touch behavior like scrolling/zooming outside inputs
-                    // If an input was focused and user touches outside, blur it to hide keyboard
-                    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
-                        activeElement.blur();
-                    }
+                if (activeElement && activeElement.tagName !== 'BODY' &&
+                    activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+                    activeElement.blur();
                 }
-            }, { passive: false }); // passive: false is crucial for preventDefault
-
-            // Setup touch controls for D-pad and action button
-            // These elements must exist in your HTML, e.g.:
-            // <div id="touch-controls">
-            //   <button id="touch-up">Up</button>
-            //   <button id="touch-down">Down</button>
-            //   <button id="touch-left">Left</button>
-            //   <button id="touch-right">Right</button>
-            //   <button id="touch-action">Action</button>
-            // </div>
+            }, { passive: false });
 
             const setupTouchButton = (id, controlKey) => {
                 const button = document.getElementById(id);
                 if (button) {
                     button.addEventListener('touchstart', (e) => {
-                        e.preventDefault(); // Prevent default touch behavior like scrolling
+                        e.preventDefault();
                         _touchControls[controlKey] = true;
                     }, { passive: false });
                     button.addEventListener('touchend', (e) => {
                         e.preventDefault();
                         _touchControls[controlKey] = false;
                     }, { passive: false });
-                    button.addEventListener('touchcancel', (e) => { // Handle touches leaving the button area
+                    button.addEventListener('touchcancel', (e) => {
                         e.preventDefault();
                         _touchControls[controlKey] = false;
                     }, { passive: false });
-                    // For debugging on desktop with mouse
                     button.addEventListener('mousedown', (e) => {
                         e.preventDefault();
                         _touchControls[controlKey] = true;
@@ -2854,8 +2253,8 @@ var GX = new function() {
                         e.preventDefault();
                         _touchControls[controlKey] = false;
                     });
-                    button.addEventListener('mouseleave', (e) => { // For desktop mouse
-                        if (e.buttons === 1) { // If mouse button is still pressed
+                    button.addEventListener('mouseleave', (e) => {
+                        if (e.buttons === 1) {
                             _touchControls[controlKey] = false;
                         }
                     });
@@ -2870,20 +2269,16 @@ var GX = new function() {
             setupTouchButton('touch-right', 'right');
             setupTouchButton('touch-action', 'action');
 
-            // Optionally, show touch controls and hide keyboard-related instructions
             const touchControlsContainer = document.getElementById('touch-controls');
             if (touchControlsContainer) {
                 touchControlsContainer.style.display = 'block';
             }
-            // You might also want to hide a desktop-specific controls overlay here
         } else {
-            // Hide touch controls on desktop
             const touchControlsContainer = document.getElementById('touch-controls');
             if (touchControlsContainer) {
                 touchControlsContainer.style.display = 'none';
             }
         }
-        // --- END NEW ---
     }
 
     this.ctx = function() { return _ctx; };
@@ -2967,7 +2362,6 @@ var GX = new function() {
     this.entitySequences = _entitySequences;
     this.entityFrames = _entityFrames;
 
-
     this.mapColumns = _mapColumns;
     this.mapCreate = _mapCreate;
     this.mapLoad = _mapLoad;
@@ -3036,7 +2430,6 @@ var GX = new function() {
     
     this.sceneActive = function() { return _scene.active; }
 
-    // constants
     this.TRUE = -1;
     this.FALSE = 0;
 
@@ -3172,18 +2565,18 @@ var GX = new function() {
     this.ACTION_JUMP_RIGHT = 6;
     this.ACTION_JUMP_LEFT = 7;
 
-    this.SCENE_FOLLOW_NONE = 0;                // no automatic scene positioning (default)
-    this.SCENE_FOLLOW_ENTITY_CENTER = 1;       // center the view on a specified entity
-    this.SCENE_FOLLOW_ENTITY_CENTER_X = 2;     // center the x axis of the scene on the specified entity
-    this.SCENE_FOLLOW_ENTITY_CENTER_Y = 3;     // center the y axis of the scene on the specified entity
-    this.SCENE_FOLLOW_ENTITY_CENTER_X_POS = 4; // center the x axis of the scene only when moving to the right
-    this.SCENE_FOLLOW_ENTITY_CENTER_X_NEG = 5; // center the x axis of the scene only when moving to the left
+    this.SCENE_FOLLOW_NONE = 0;
+    this.SCENE_FOLLOW_ENTITY_CENTER = 1;
+    this.SCENE_FOLLOW_ENTITY_CENTER_X = 2;
+    this.SCENE_FOLLOW_ENTITY_CENTER_Y = 3;
+    this.SCENE_FOLLOW_ENTITY_CENTER_X_POS = 4;
+    this.SCENE_FOLLOW_ENTITY_CENTER_X_NEG = 5;
 
-    this.SCENE_CONSTRAIN_NONE = 0;   // no checking on scene position: can be negative, can exceed map size (default)
-    this.SCENE_CONSTRAIN_TO_MAP = 1; // do not allow screen position outside the bounds of the map size
+    this.SCENE_CONSTRAIN_NONE = 0;
+    this.SCENE_CONSTRAIN_TO_MAP = 1;
 
-    this.FONT_DEFAULT = 1;       // default bitmap font (white)
-    this.FONT_DEFAULT_BLACK = 2; // default bitmap font (black
+    this.FONT_DEFAULT = 1;
+    this.FONT_DEFAULT_BLACK = 2;
 
     this.DEVICE_KEYBOARD = 1;
     this.DEVICE_MOUSE = 2;
@@ -3199,20 +2592,12 @@ var GX = new function() {
     this.LF = "\n";
     this.CRLF = "\r\n"
 
-
-
-    // Array handling methods
-    // TODO: These methods are included here to avoid a circular dependency with qb.js
-    //       Implementation should be moved to a separated shared js file
-    // ----------------------------------------------------
     this.initArray = function(dimensions, obj) {
         var a = {};
         if (dimensions && dimensions.length > 0) {
             a._dimensions = dimensions;
         }
         else {
-            // default to single dimension to support Dim myArray() syntax
-            // for convenient hashtable declaration
             a._dimensions = [{l:0,u:1}];
         }
         a._newObj = { value: obj };
@@ -3232,8 +2617,6 @@ var GX = new function() {
             a._dimensions = dimensions;
         }
         else {
-            // default to single dimension to support Dim myArray() syntax
-            // for convenient hashtable declaration
             a._dimensions = [{l:0,u:1}];
         }
     };
@@ -3257,8 +2640,6 @@ var GX = new function() {
 
 };    
     
-
-// Consider moving these to separate optional js files
 var GXSTR = new function() {
     this.lPad = function(str, padChar, padLength) {
         return String(str).padStart(padLength, padChar);
@@ -3272,40 +2653,5 @@ var GXSTR = new function() {
         return String(str).replaceAll(findStr, replaceStr);
     }
 };
-
-// --- IMPORTANT: You need to ensure 'VFS' and 'pako' are defined before this script runs. ---
-// Example VFS (Virtual File System) and pako (compression library) definitions:
-/*
-// Example VFS (Virtual File System) - You'll need a full implementation for this to work.
-// This is a placeholder to prevent 'VFS is not defined' errors if you don't have one.
-function VFS() {
-    this.rootDirectory = function() { return { name: '/', type: 'directory', children: [] }; };
-    this.getNode = function(path, cwd) {
-        // Placeholder implementation
-        if (path === "_gxtmp") return { name: "_gxtmp", type: 'directory', children: [] };
-        if (path === "layer.dat") return { name: "layer.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
-        if (path === "layer-i.dat") return { name: "layer-i.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
-        if (path === "tileset.png") return { name: "tileset.png", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
-        return null;
-    };
-    this.createDirectory = function(name, parent) { return { name: name, type: 'directory', children: [] }; };
-    this.createFile = function(name, parent) { return { name: name, type: 'file', data: new ArrayBuffer(0), byteLength: 0 }; };
-    this.writeData = function(file, data, offset = 0) { file.data = data; file.byteLength = data.byteLength; };
-    this.readText = function(file) { return new TextDecoder().decode(file.data); };
-    this.readData = function(file, offset, length) { return file.data.slice(offset, offset + length); };
-    this.textToData = function(text) { return new TextEncoder().encode(text).buffer; };
-    this.removeFile = function(file, parent) { };
-    this.getDataURL = async function(file) { return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; }; // Placeholder
-    this.getParentPath = function(filename) { return ''; };
-    this.getFileName = function(filename) { return filename; };
-}
-
-// Example pako (compression library) - You'll need to include the actual pako library.
-// This is a placeholder to prevent 'pako is not defined' errors.
-const pako = {
-    inflate: function(data) { return data; }, // No actual inflation
-    deflate: function(data) { return data; }  // No actual deflation
-};
-*/
 
 GX.init();
