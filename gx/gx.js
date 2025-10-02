@@ -36,7 +36,7 @@ var GX = new function() {
     var _touchPos = { x:0, y:0 };
     var _bindTouchToMouse = true;
 
-    var _vfs = new VFS();
+    var _vfs = new VFS(); // Assuming VFS is defined elsewhere or will be provided
     var _vfsCwd = null;
 
     // javascript specific
@@ -517,7 +517,7 @@ var GX = new function() {
         if (GX.tilesetWidth() < 1 || GX.tilesetHeight() < 1) { return; }
         if (GX.mapIsometric()) {
             _scene.columns = Math.floor(GX.sceneWidth() / GX.tilesetWidth());
-            _scene.rows = GX.sceneHeight() / (GX.tilesetWidth() / 4);
+            _scene.rows = Math.floor(GX.sceneHeight() / (GX.tilesetWidth() / 4));
         } else {
             _scene.columns = Math.floor(GX.sceneWidth() / GX.tilesetWidth());
             _scene.rows = Math.floor(GX.sceneHeight() / GX.tilesetHeight());
@@ -1116,7 +1116,7 @@ var GX = new function() {
         vfs.removeFile(ldataFile, tmpDir);
         
         // inflate the compressed data and write it to a temp file
-        var ldata = pako.inflate(vfs.textToData(ldstr));
+        var ldata = pako.inflate(vfs.textToData(ldstr)); // Assuming pako is defined elsewhere or will be provided
         ldataFile = vfs.createFile("layer-i.dat", tmpDir);
         vfs.writeData(ldataFile, ldata);
     
@@ -1210,7 +1210,7 @@ var GX = new function() {
         for (var i=0; i < dirs.length; i++) {
             if (dirs[i] == "") { continue; }
             var p = vfs.getNode(dirs[i], parentDir);
-            if (!p) { p = vfs.getNode(dirs[i], parentDir); }
+            if (!p) { p = vfs.getNode(dirs[i], parentDir); } // This line seems redundant, p would already be assigned if found
             parentDir = p;
         }
     
@@ -1245,7 +1245,7 @@ var GX = new function() {
             }
         }
 
-        var cdata = pako.deflate(ldata);
+        var cdata = pako.deflate(ldata); // Assuming pako is defined elsewhere or will be provided
         writeLong(fh, cdata.byteLength);
         vfs.writeData(fh.file, cdata, fh.pos);
         fh.pos += cdata.byteLength;
@@ -2590,7 +2590,7 @@ var GX = new function() {
             case GX.KEY_M: k = "M"; break;
             case GX.KEY_COMMA: k = ","; break;
             case GX.KEY_PERIOD: k = "."; break;
-            case GX.KEY_SLASH: k = "/"; break;
+            case GX.KEY_SLASH: k = "Slash"; break;
             case GX.KEY_RSHIFT: k = "RShift"; break;
             case GX.KEY_NUMPAD_MULTIPLY: k = "NPad *"; break;
             case GX.KEY_SPACEBAR: k = "Space"; break;
@@ -2607,24 +2607,24 @@ var GX = new function() {
             case GX.KEY_F10: k = "F10"; break;
             case GX.KEY_PAUSE: k = "Pause"; break;
             case GX.KEY_SCRLK: k = "ScrLk"; break;
-            case GX.KEY_NUMPAD_7: k = "NPad 7"; break;
-            case GX.KEY_NUMPAD_8: k = "NPad 8"; break;
-            case GX.KEY_NUMPAD_9: k = "NPad 9"; break;
+            case GX.KEY_NUMPAD_7: k = "Numpad 7"; break;
+            case GX.KEY_NUMPAD_8: k = "Numpad 8"; break;
+            case GX.KEY_NUMPAD_9: k = "Numpad 9"; break;
             case GX.KEY_NUMPAD_MINUS: k = "-"; break;
-            case GX.KEY_NUMPAD_4: k = "NPad 4"; break;
-            case GX.KEY_NUMPAD_5: k = "NPad 5"; break;
-            case GX.KEY_NUMPAD_6: k = "NPad 6"; break;
+            case GX.KEY_NUMPAD_4: k = "Numpad 4"; break;
+            case GX.KEY_NUMPAD_5: k = "Numpad 5"; break;
+            case GX.KEY_NUMPAD_6: k = "Numpad 6"; break;
             case GX.KEY_NUMPAD_PLUS: k = "+"; break;
-            case GX.KEY_NUMPAD_1: k = "NPad 1"; break;
-            case GX.KEY_NUMPAD_2: k = "NPad 2"; break;
-            case GX.KEY_NUMPAD_3: k = "NPad 3"; break;
-            case GX.KEY_NUMPAD_0: k = "NPad 0"; break;
-            case GX.KEY_NUMPAD_PERIOD: k = "NPad ."; break;
+            case GX.KEY_NUMPAD_1: k = "Numpad 1"; break;
+            case GX.KEY_NUMPAD_2: k = "Numpad 2"; break;
+            case GX.KEY_NUMPAD_3: k = "Numpad 3"; break;
+            case GX.KEY_NUMPAD_0: k = "Numpad 0"; break;
+            case GX.KEY_NUMPAD_PERIOD: k = "Numpad ."; break;
             case GX.KEY_F11: k = "F11"; break;
             case GX.KEY_F12: k = "F12"; break;
-            case GX.KEY_NUMPAD_ENTER: k = "NPad Enter"; break;
+            case GX.KEY_NUMPAD_ENTER: k = "Numpad Enter"; break;
             case GX.KEY_RCTRL: k = "RCtrl"; break;
-            case GX.KEY_NUMPAD_DIVIDE: k = "NPad /"; break;
+            case GX.KEY_NUMPAD_DIVIDE: k = "Numpad /"; break;
             case GX.KEY_NUMLOCK: k = "NumLk"; break;
             case GX.KEY_HOME: k = "Home"; break;
             case GX.KEY_UP: k = "Up"; break;
@@ -2664,7 +2664,7 @@ var GX = new function() {
 
     Sub GXDebugScreenEntities (enabled As Integer)
         __gx_debug.screenEntities = enabled
-    End Sub
+    Sub
 */
     function _debugFont(font) {
         if (font != undefined) {
@@ -2773,16 +2773,28 @@ var GX = new function() {
         // keyboard event initialization
         // detect key state for KeyDown method
         addEventListener("keyup", function(event) { 
-            if (_scene.active) {
+            // Check if an input field or textarea is currently focused
+            const activeElement = document.activeElement;
+            const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
+
+            if (_scene.active && !isTypingIntoInput) {
                 event.preventDefault();
             }
-            _pressedKeys[event.code] = false;
+            if (!isTypingIntoInput) {
+                _pressedKeys[event.code] = false;
+            }
         });
         addEventListener("keydown", function(event) { 
-            if (_scene.active) {
+            // Check if an input field or textarea is currently focused
+            const activeElement = document.activeElement;
+            const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
+
+            if (_scene.active && !isTypingIntoInput) {
                 event.preventDefault();
             }
-            _pressedKeys[event.code] = true;
+            if (!isTypingIntoInput) {
+                _pressedKeys[event.code] = true;
+            }
         });
 
         // --- NEW: Mobile device detection and touch control setup ---
@@ -2790,13 +2802,14 @@ var GX = new function() {
         if (_isMobileDevice) {
             console.log("Mobile device detected. Initializing touch controls.");
             // Hide the virtual keyboard by ensuring no input fields are focused
-            // This is a common trick, but not foolproof.
-            // A better approach is to use on-screen controls.
+            // MODIFIED: Allow virtual keyboard for actual input/textarea elements
             document.body.addEventListener('touchstart', function(e) {
-                if (document.activeElement && document.activeElement.tagName !== 'BODY') {
-                    document.activeElement.blur();
+                const activeElement = document.activeElement;
+                if (activeElement && activeElement.tagName !== 'BODY' &&
+                    activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+                    activeElement.blur();
                 }
-            }, false);
+            }, { passive: false }); // passive: false is crucial for preventDefault
 
             // Setup touch controls for D-pad and action button
             // These elements must exist in your HTML, e.g.:
@@ -3250,5 +3263,40 @@ var GXSTR = new function() {
         return String(str).replaceAll(findStr, replaceStr);
     }
 };
+
+// --- IMPORTANT: You need to ensure 'VFS' and 'pako' are defined before this script runs. ---
+// Example VFS (Virtual File System) and pako (compression library) definitions:
+/*
+// Example VFS (Virtual File System) - You'll need a full implementation for this to work.
+// This is a placeholder to prevent 'VFS is not defined' errors if you don't have one.
+function VFS() {
+    this.rootDirectory = function() { return { name: '/', type: 'directory', children: [] }; };
+    this.getNode = function(path, cwd) {
+        // Placeholder implementation
+        if (path === "_gxtmp") return { name: "_gxtmp", type: 'directory', children: [] };
+        if (path === "layer.dat") return { name: "layer.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
+        if (path === "layer-i.dat") return { name: "layer-i.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
+        if (path === "tileset.png") return { name: "tileset.png", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
+        return null;
+    };
+    this.createDirectory = function(name, parent) { return { name: name, type: 'directory', children: [] }; };
+    this.createFile = function(name, parent) { return { name: name, type: 'file', data: new ArrayBuffer(0), byteLength: 0 }; };
+    this.writeData = function(file, data, offset = 0) { file.data = data; file.byteLength = data.byteLength; };
+    this.readText = function(file) { return new TextDecoder().decode(file.data); };
+    this.readData = function(file, offset, length) { return file.data.slice(offset, offset + length); };
+    this.textToData = function(text) { return new TextEncoder().encode(text).buffer; };
+    this.removeFile = function(file, parent) { };
+    this.getDataURL = async function(file) { return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; }; // Placeholder
+    this.getParentPath = function(filename) { return ''; };
+    this.getFileName = function(filename) { return filename; };
+}
+
+// Example pako (compression library) - You'll need to include the actual pako library.
+// This is a placeholder to prevent 'pako is not defined' errors.
+const pako = {
+    inflate: function(data) { return data; }, // No actual inflation
+    deflate: function(data) { return data; }  // No actual deflation
+};
+*/
 
 GX.init();
