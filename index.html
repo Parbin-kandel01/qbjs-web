@@ -11,7 +11,7 @@
         <link rel="stylesheet" href="codemirror/matchesonscrollbar.css">
         <link id="ide-theme" rel="stylesheet" href="codemirror/themes/qbjs.css"></link>
         <link rel="shortcut icon" type="image/x-icon" href="favicon.ico"></link>
-
+        
         <script type="text/javascript" src="codemirror/codemirror.min.js"></script>
         <script type="text/javascript" src="codemirror/qb-lang.js"></script>
         <script type="text/javascript" src="codemirror/active-line.js"></script>
@@ -20,7 +20,7 @@
         <script type="text/javascript" src="util/shorty.min.js"></script>
         <script type="text/javascript" src="util/pako.2.1.0.min.js"></script>
         <script type="text/javascript" src="util/hexy.js"></script>
-
+        
         <script type="text/javascript" src="codemirror/lang/css.js"></script>
         <script type="text/javascript" src="codemirror/lang/clike.js"></script>
         <script type="text/javascript" src="codemirror/lang/javascript.js"></script>
@@ -31,64 +31,50 @@
         <script type="text/javascript" src="codemirror/lang/xml.js"></script>
         <script type="text/javascript" src="codemirror/lang/htmlmixed.js"></script>
         <script type="text/javascript" src="codemirror/lang/php.js"></script>
-
+        
         <script type="text/javascript" src="codemirror/dialog.js"></script>
         <script type="text/javascript" src="codemirror/searchcursor.js"></script>
         <script type="text/javascript" src="codemirror/search.js"></script>
         <script type="text/javascript" src="codemirror/annotatescrollbar.js"></script>
         <script type="text/javascript" src="codemirror/matchesonscrollbar.js"></script>
         <script type="text/javascript" src="codemirror/vim.js"></script>
-
+        
         <script type="text/javascript" src="util/showdown.min.js"></script>
-
         <style>
-            /* Touch controls */
-            #touch-controls {
-                position: absolute;
-                bottom: 10px;
-                left: 10px;
-                right: 10px;
-                display: none; /* GX.js will show on mobile */
-                z-index: 1000;
-                pointer-events: none;
-            }
-            .touch-button {
-                position: absolute;
-                background-color: rgba(0, 0, 0, 0.5);
-                color: white;
-                border: 2px solid white;
-                border-radius: 50%;
-                width: 60px;
-                height: 60px;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                font-size: 1.2em;
-                font-weight: bold;
-                user-select: none;
-                -webkit-user-select: none;
-                -moz-user-select: none;
-                pointer-events: auto;
-            }
-            #touch-up { top: 0; left: 70px; }
-            #touch-down { bottom: 0; left: 70px; }
-            #touch-left { top: 35px; left: 0; }
-            #touch-right { top: 35px; left: 140px; }
-            #touch-action { bottom: 35px; right: 0; border-radius: 10px; width: 80px; }
-
-            /* ✅ Make input visible enough for mobile keyboard */
-            #gx-hidden-input {
-                position: absolute;
-                bottom: 5px;
-                left: 5px;
-                width: 1px;
-                height: 1px;
-                opacity: 0.01;
-                background: transparent;
-                color: transparent;
-                border: none;
-                z-index: 99999;
-            }
+            /* Basic styling for touch controls - you might want to move this to qbjs-ide.css */
+            #touch-controls { 
+                position: absolute; 
+                bottom: 10px; 
+                left: 10px; 
+                right: 10px; 
+                display: none; /* Hidden by default, GX.js will show it on mobile */
+                z-index: 1000; 
+                pointer-events: none; /* Allow clicks to pass through the container */
+            } 
+            .touch-button { 
+                position: absolute; 
+                background-color: rgba(0, 0, 0, 0.5); 
+                color: white; 
+                border: 2px solid white; 
+                border-radius: 50%; 
+                width: 60px; 
+                height: 60px; 
+                display: flex; 
+                justify-content: center; 
+                align-items: center; 
+                font-size: 1.2em; 
+                font-weight: bold; 
+                user-select: none; 
+                -webkit-user-select: none; 
+                -moz-user-select: none; 
+                pointer-events: auto; /* Make buttons clickable */
+            } 
+            #touch-up { top: 0; left: 70px; } 
+            #touch-down { bottom: 0; left: 70px; } 
+            #touch-left { top: 35px; left: 0; } 
+            #touch-right { top: 35px; left: 140px; } 
+            #touch-action { bottom: 35px; right: 0; border-radius: 10px; width: 80px; } 
+            /* Example for action button */ 
         </style>
     </head>
     <body style="display:none">
@@ -103,7 +89,6 @@
             <div class="spacer"></div>
             <a href="javascript:IDE.showMethodDialog()" class="toolbar-button" id="toolbar-button-methods" title="Show Methods"></a>
             <a href="javascript:IDE.showOptionDialog()" class="toolbar-button" id="toolbar-button-settings" title="Settings"></a>
-
             <a href="javascript:IDE.showDialog('about-dialog')" class="toolbar-button" id="toolbar-button-about" title="About QBJS"></a>
             <div class="spacer" style="float:right"></div>
             <a href="javascript:IDE.showConsole()" class="toolbar-button" id="toolbar-button-console-show" title="Show Console"></a>
@@ -111,36 +96,38 @@
             <a href="javascript:IDE.slideRight()" class="toolbar-button" id="toolbar-button-slide-right" title="Slide View Right"></a>
             <a href="javascript:IDE.slideLeft()" class="toolbar-button" id="toolbar-button-slide-left" title="Slide View Left"></a>
         </div>
-
         <div id="code-container">
             <div id="code-tabs" class="tabs">
-                <div id="code-tab-menu" class="tab">
-                    <div id="code-slide-left" onclick="IDE.codeTabSlideLeft()">◄</div>
-                    <div id="code-slide-right" onclick="IDE.codeTabSlideRight()">►</div>
-                </div>
-                <div id="code-tab-container"><div id="mainbas" class="tab active" onclick="IDE.changeCodeTab(this)">Main</div></div>
-            </div>
+                <div id="code-tab-menu" class="tab"><div id="code-slide-left" onclick="IDE.codeTabSlideLeft()">◄</div><div id="code-slide-right" onclick="IDE.codeTabSlideRight()">►</div></div><div id="code-tab-container"><div id="mainbas" class="tab active" onclick="IDE.changeCodeTab(this)">Main</div></div></div>
             <div id="code"></div>
         </div>
-
-        <div id="slider"></div>
-
+        <div id="slider">
+        </div>
         <div id="game-container">
             <div id="gx-container">
                 <a href="javascript:runProgram()" id="gx-load-screen">&nbsp;</a>
-
-                <!-- ✅ Hidden input for mobile keyboard -->
+                
                 <input 
-                    id="gx-hidden-input"
-                    type="text"
-                    inputmode="text"
-                    autocapitalize="none"
-                    autocomplete="off"
-                    spellcheck="false"
+                    id="gx-hidden-input" 
+                    type="text" 
+                    inputmode="text" 
+                    autocapitalize="none" 
+                    autocomplete="off" 
+                    spellcheck="false" 
+                    style="
+                        position:absolute;
+                        top:5px;
+                        left:5px;
+                        width:1px;
+                        height:1px;
+                        opacity:0.01;
+                        background:transparent;
+                        color:transparent;
+                        border:none;
+                        z-index:99999;
+                        pointer-events:auto;" 
                 />
             </div>
-
-            <!-- Touch Controls -->
             <div id="touch-controls">
                 <div id="touch-up" class="touch-button">▲</div>
                 <div id="touch-down" class="touch-button">▼</div>
@@ -148,14 +135,10 @@
                 <div id="touch-right" class="touch-button">▶</div>
                 <div id="touch-action" class="touch-button">ACT</div>
             </div>
-
             <div id="vslider"></div>
             <div id="output-container">
                 <div id="tabs">
-                    <div id="tab-console" class="tab" onclick="IDE.changeTab('console')">Console</div>
-                    <div id="tab-js" class="tab" onclick="IDE.changeTab('js')">Javascript</div>
-                    <div id="tab-fs" class="tab" onclick="IDE.changeTab('fs')">Files</div>
-                    <div id="tab-help" class="tab" onclick="IDE.changeTab('help')">Help</div>
+                    <div id="tab-console" class="tab" onclick="IDE.changeTab('console')">Console</div><div id="tab-js" class="tab" onclick="IDE.changeTab('js')">Javascript</div><div id="tab-fs" class="tab" onclick="IDE.changeTab('fs')">Files</div><div id="tab-help" class="tab" onclick="IDE.changeTab('help')">Help</div>
                 </div>
                 <div id="output-content">
                     <div id="warning-container"></div>
@@ -168,7 +151,8 @@
                             <div id="fs-new-file" title="New File" onclick="IDE.onNewFile()"></div>
                             <div id="fs-upload" title="Upload" onclick="IDE.onUploadFile()"></div>
                         </div>
-                        <div id="fs-contents"></div>
+                        <div id="fs-contents">
+                        </div>
                     </div>
                     <div id="help">
                         <div id="help-nav" class="help-nav">
@@ -183,83 +167,138 @@
                 </div>
             </div>
         </div>
-
         <div id="gx-footer"></div>
-
         <form style="display:none">
             <input id="file-input" type="file" accept=".bas, .zip">
         </form>
-
-        <!-- dialogs (unchanged) -->
-        <!-- share-dialog, prog-sel-dialog, options-dialog, methods-dialog, about-dialog -->
-        <!-- identical to your version -->
+        <dialog id="share-dialog">
+            <div style="margin-bottom:5px">Copy the link below to share your code:</div>
+            <div><textarea id="share-code" rows="15" cols="60" readonly></textarea></div>
+            <div style="margin-top: 5px; float:left">Launch Mode:
+                <select id="share-mode" onchange="IDE.shareProgram()">
+                    <option value="">IDE (Default)</option>
+                    <option value="play">Play</option>
+                    <option value="auto">Auto</option>
+                </select>
+            </div>
+            <a id="export-button" href="javascript:IDE.exportProgram()" style="float:left; margin-top: 7px; margin-left: 10px">Export</a>
+            <a href="javascript:IDE.closeDialog()" style="display:block; float:right; margin-top: 7px">Close</a>
+            <a href="javascript:IDE.testShare()" style="display: block; float:right; margin-top: 7px; margin-right: 10px">Test</a>
+        </dialog>
+        <dialog id="prog-sel-dialog">
+            <div>
+                No main.bas file found.<br/>
+                Select main program source file:
+            </div>
+            <select id="prog-sel-sources" size="10" style="display:block; width:100%; margin-top:10px"></select>
+            <div style="text-align:center; margin-top:10px">
+                <a href="javascript:IDE.onSelMainProg()">Ok</a>
+                <a href="javascript:IDE.closeDialog()">Cancel</a>
+            </div>
+        </dialog>
+        <dialog id="options-dialog">
+            <div>Select a theme:</div>
+            <select id="theme-picker" onchange="IDE.changeTheme(this.value)">
+                <option value="qbjs">Default</option>
+                <option value="qb45">QBasic</option>
+                <option value="blackout">Blackout</option>
+                <option value="qb64-vscode">QB64 VSCode</option>
+                <option value="win-classic">Windows Classic</option>
+                <option value="vscode-dark">VSCode Dark</option>
+            </select>
+            <br/><br/>
+            <div>Key Bindings:</div>
+            <select id="key-bindings" onchange="IDE.changeKeyMap(this.value)">
+                <option value="default">Default</option>
+                <option value="vim">VIM</option>
+            </select>
+            <br/><br/>
+            <input type="checkbox" id="console-persistence" onchange="IDE.toggleConsolePersistence(this.checked)"/>
+            <label for="console-persistence">Remember console visibility and panel</label>
+            <br/><br/>
+            <div>Convert Source Encoding:</div>
+            <div style="margin-top:5px"><a href="#" onclick="IDE.convert437ToUTF()">Code Page 437 to UTF</a></div>
+            <div>
+                <a href="javascript:IDE.closeDialog()" style="display:block; float:right; margin-top: 7px">Close</a>
+            </div>
+        </dialog>
+        <dialog id="methods-dialog">
+            <div id="method-tabs">
+                <div id="tab-methods" class="tab active" onclick="IDE.changeMethodTab('methods')">Methods</div><div id="tab-imports" class="tab" onclick="IDE.changeMethodTab('imports')">Imports</div>
+            </div>
+            <div id="methods" class="methods">
+                <table>
+                    <thead>
+                        <th>Method</th>
+                        <th>Type</th>
+                        <th>Arguments</th>
+                    </thead>
+                    <tbody id="methods-content"></tbody>
+                </table>
+            </div>
+            <div id="imports" class="methods" style="display:none">
+                <table>
+                    <thead>
+                        <th>Method</th>
+                        <th>Type</th>
+                        <th>Arguments</th>
+                    </thead>
+                    <tbody id="imports-content"></tbody>
+                </table>
+            </div>
+            <a href="javascript:IDE.closeDialog()" style="display:block; float:right; margin-top: 7px">Close</a>
+        </dialog>
+        <dialog id="about-dialog">
+            <div>
+                <img id="logo" src="logo.png" onclick="window.open('https://github.com/boxgaming/qbjs/wiki', '_blank')">
+                <p>QBJS - QBasic for the Web!</p>
+                <p>Version: <a href="https://github.com/boxgaming/qbjs/releases" target="_blank">0.10.0</a></p>
+                <p></p>
+                <p> 
+                    QBJS brings the fun and accessibility of QBasic to the browser.<br/> 
+                    Learn more:<br/> 
+                    <ul> 
+                        <li><a href="javascript:IDE.showHelp('language')">QBasic Language Support</a></li> 
+                        <li><a href="javascript:IDE.showHelp('keywords')">Supported Keywords</a></li> 
+                        <li><a href="javascript:IDE.showHelp('samples')">Samples</a></li> 
+                    </ul> 
+                </p>
+                <p>Copyright (c) 2022-2025 boxgaming</p>
+                <div>
+                    <a href="javascript:IDE.closeDialog()" style="display:block; float:right">Close</a>
+                </div>
+            </div>
+        </dialog>
     </body>
-
-    <script>
-        const delay = ms => new Promise(res => setTimeout(res, ms));
+    <script> 
+        const delay = ms => new Promise(res => setTimeout(res, ms)); 
     </script>
-
     <script src="vfs.js"></script>
     <script src="gx/gx.js"></script>
     <script src="qb.js"></script>
     <script src="qb2js.js"></script>
     <script src="githelp.js"></script>
     <script src="qbjs-ide.js"></script>
-
     <script>
         window.onload = function() {
-            // ✅ Prevent touch control button warnings
-            if (typeof setupTouchButton === 'function') {
-                const oldSetupTouchButton = setupTouchButton;
-                window.setupTouchButton = function(id, key) {
-                    const el = document.getElementById(id);
-                    if (!el) return;
-                    oldSetupTouchButton(id, key);
-                };
+            // 1. Initialize the QB runtime
+            if (typeof QB !== 'undefined' && typeof QB.init === 'function') {
+                QB.init();
             }
 
-            // ✅ Mobile keyboard support
-            const hiddenInput = document.getElementById('gx-hidden-input');
-            const gxContainer = document.getElementById('gx-container');
-            if (hiddenInput && gxContainer) {
-                const focusInput = (x, y) => {
-                    hiddenInput.style.left = (x || 5) + 'px';
-                    hiddenInput.style.top = (y || 5) + 'px';
-                    setTimeout(() => hiddenInput.focus({ preventScroll: true }), 40);
-                };
-
-                gxContainer.addEventListener('touchstart', (e) => {
-                    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-                        const t = e.touches[0];
-                        focusInput(t.clientX, t.clientY);
-                    }
-                });
-
-                gxContainer.addEventListener('click', (e) => {
-                    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-                        focusInput(e.clientX, e.clientY);
-                    }
-                });
-
-                hiddenInput.addEventListener('input', (e) => {
-                    const val = e.target.value;
-                    if (val && val.length > 0) {
-                        if (window.QB && typeof QB.keyPress === 'function') QB.keyPress(val);
-                        e.target.value = '';
-                    }
-                });
+            // 2. Initialize the IDE and make the body visible
+            if (typeof IDE !== 'undefined' && typeof IDE.init === 'function') {
+                IDE.init();
+            } else {
+                document.body.style.display = 'block';
             }
 
-            // ✅ Original initialization preserved
-            if (typeof QB !== 'undefined' && typeof QB.init === 'function') QB.init();
-            if (typeof IDE !== 'undefined' && typeof IDE.init === 'function') IDE.init();
-            else document.body.style.display = 'block';
-
+            // 3. Handle initial code loading
             if (window.initialQBasicCode) {
                 const codeToLoad = window.initialQBasicCode;
                 setTimeout(() => {
                     let codeExecuted = false;
-                    if (typeof window.loadCode === 'function' && !window.loadCode.toString().includes('initialQBasicCode')) {
+                    if (typeof window.loadCode === 'function' && window.loadCode.toString().indexOf('initialQBasicCode') === -1) {
                         window.loadCode(codeToLoad);
                         codeExecuted = true;
                     } else if (typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
@@ -271,6 +310,46 @@
                     }
                     delete window.initialQBasicCode;
                 }, 500);
+            }
+            
+            // 4. MOBILE KEYBOARD FIX: Logic to force open the virtual keyboard on touch
+            const hiddenInput = document.getElementById('gx-hidden-input');
+            const gxContainer = document.getElementById('gx-container');
+
+            if (hiddenInput && gxContainer) {
+                // Attach touchstart to the game container
+                gxContainer.addEventListener('touchstart', (e) => {
+                    // This check ensures the code runs only on mobile-like environments
+                    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+                        // Prevent default scrolling/zooming behavior
+                        // e.preventDefault(); // Uncomment if you want to prevent all default touch behavior
+                        
+                        const touch = e.touches[0];
+                        
+                        // Temporarily move the tiny input under the user's touch point
+                        hiddenInput.style.left = (touch.clientX || 5) + 'px';
+                        hiddenInput.style.top = (touch.clientY || 5) + 'px';
+                        
+                        // Force focus, which should trigger the virtual keyboard
+                        hiddenInput.focus({ preventScroll: true });
+                        
+                        // Optional fallback for reliability on certain Android devices
+                        // setTimeout(() => hiddenInput.focus({ preventScroll: true }), 50);
+                    }
+                });
+
+                // Capture input from the virtual keyboard and relay it to QBJS
+                hiddenInput.addEventListener('input', (e) => {
+                    const val = e.target.value;
+                    if (val && val.length > 0) {
+                        // Pass the entered character to the QB runtime (assuming QB.keyPress handles it)
+                        if (window.QB && typeof QB.keyPress === 'function') {
+                            // Send one character at a time, or the whole string depending on QB.keyPress implementation
+                            QB.keyPress(val); 
+                        }
+                        e.target.value = ''; // Clear the input immediately for the next character
+                    }
+                });
             }
         };
     </script>
