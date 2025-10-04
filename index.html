@@ -40,6 +40,42 @@
         <script type="text/javascript" src="codemirror/vim.js"></script>
 
         <script type="text/javascript" src="util/showdown.min.js"></script>
+
+        <style>
+            /* Basic styling for touch controls - you might want to move this to qbjs-ide.css */
+            #touch-controls {
+                position: absolute;
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+                display: none; /* Hidden by default, GX.js will show it on mobile */
+                z-index: 1000;
+                pointer-events: none; /* Allow clicks to pass through the container */
+            }
+            .touch-button {
+                position: absolute;
+                background-color: rgba(0, 0, 0, 0.5);
+                color: white;
+                border: 2px solid white;
+                border-radius: 50%;
+                width: 60px;
+                height: 60px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 1.2em;
+                font-weight: bold;
+                user-select: none;
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                pointer-events: auto; /* Make buttons clickable */
+            }
+            #touch-up { top: 0; left: 70px; }
+            #touch-down { bottom: 0; left: 70px; }
+            #touch-left { top: 35px; left: 0; }
+            #touch-right { top: 35px; left: 140px; }
+            #touch-action { bottom: 35px; right: 0; border-radius: 10px; width: 80px; } /* Example for action button */
+        </style>
     </head>
     <body style="display:none">
         <div id="toolbar">
@@ -72,7 +108,7 @@
             <div id="gx-container">
                 <a href="javascript:runProgram()" id="gx-load-screen">&nbsp;</a>
 
-                <!-- ✅ Hidden input for mobile keyboard -->
+                <!-- Hidden input for mobile keyboard -->
                 <input 
                     id="gx-hidden-input" 
                     type="text" 
@@ -83,6 +119,15 @@
                     style="position:absolute;opacity:0;pointer-events:none;height:0;width:0;z-index:-1;"
                 />
             </div>
+            <!-- Mobile Touch Controls -->
+            <div id="touch-controls">
+                <div id="touch-up" class="touch-button">▲</div>
+                <div id="touch-down" class="touch-button">▼</div>
+                <div id="touch-left" class="touch-button">◀</div>
+                <div id="touch-right" class="touch-button">▶</div>
+                <div id="touch-action" class="touch-button">ACT</div>
+            </div>
+
             <div id="vslider"></div>
             <div id="output-container">
                 <div id="tabs">
@@ -238,34 +283,6 @@
     
     <script>
         window.onload = function() {
-            // ✅ Fix missing touch button warnings safely
-            if (typeof setupTouchButton === 'function') {
-                const oldSetupTouchButton = setupTouchButton;
-                window.setupTouchButton = function(id, key) {
-                    const el = document.getElementById(id);
-                    if (!el) return; // safely skip if missing
-                    oldSetupTouchButton(id, key);
-                };
-            }
-
-            // ✅ Fix: mobile virtual keyboard trigger
-            const hiddenInput = document.getElementById('gx-hidden-input');
-            const gxContainer = document.getElementById('gx-container');
-            if (hiddenInput && gxContainer) {
-                gxContainer.addEventListener('touchstart', () => {
-                    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-                        hiddenInput.focus();
-                    }
-                });
-                hiddenInput.addEventListener('input', (e) => {
-                    const val = e.target.value;
-                    if (val && val.length > 0) {
-                        if (window.QB && typeof QB.keyPress === 'function') QB.keyPress(val);
-                        e.target.value = '';
-                    }
-                });
-            }
-
             // 1. Initialize the QB runtime
             if (typeof QB !== 'undefined' && typeof QB.init === 'function') {
                 QB.init();
