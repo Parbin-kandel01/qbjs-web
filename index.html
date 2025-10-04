@@ -108,6 +108,7 @@
             <div id="gx-container">
                 <a href="javascript:runProgram()" id="gx-load-screen">&nbsp;</a>
 
+                <!-- Hidden input for mobile keyboard -->
                 <input 
                     id="gx-hidden-input" 
                     type="text" 
@@ -115,20 +116,10 @@
                     autocapitalize="none"
                     autocomplete="off"
                     spellcheck="false"
-                    style="
-                        position:absolute;
-                        top:5px;
-                        left:5px;
-                        width:1px;
-                        height:1px;
-                        opacity:0.01;
-                        background:transparent;
-                        color:transparent;
-                        border:none;
-                        z-index:99999;
-                        pointer-events:auto;" 
+                    style="position:absolute;opacity:0;pointer-events:none;height:0;width:0;z-index:-1;"
                 />
             </div>
+            <!-- Mobile Touch Controls -->
             <div id="touch-controls">
                 <div id="touch-up" class="touch-button">▲</div>
                 <div id="touch-down" class="touch-button">▼</div>
@@ -322,39 +313,6 @@
                     }
                     delete window.initialQBasicCode; 
                 }, 500);
-            }
-
-            // 4. MOBILE KEYBOARD FIX: Logic to force open the virtual keyboard on touch
-            const hiddenInput = document.getElementById('gx-hidden-input');
-            const gxContainer = document.getElementById('gx-container');
-
-            if (hiddenInput && gxContainer) {
-                // Attach touchstart to the game container
-                gxContainer.addEventListener('touchstart', (e) => {
-                    // Check for mobile device
-                    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-                        const touch = e.touches[0];
-                        
-                        // Temporarily move the tiny input under the user's touch point
-                        hiddenInput.style.left = (touch.clientX || 5) + 'px';
-                        hiddenInput.style.top = (touch.clientY || 5) + 'px';
-                        
-                        // Force focus, which should trigger the virtual keyboard
-                        hiddenInput.focus({ preventScroll: true });
-                    }
-                });
-
-                // Capture input from the virtual keyboard and relay it to QBJS
-                hiddenInput.addEventListener('input', (e) => {
-                    const val = e.target.value;
-                    if (val && val.length > 0) {
-                        // Pass the entered character to the QB runtime
-                        if (window.QB && typeof QB.keyPress === 'function') {
-                            QB.keyPress(val); 
-                        }
-                        e.target.value = ''; // Clear the input immediately for the next character
-                    }
-                });
             }
         };
     </script>
