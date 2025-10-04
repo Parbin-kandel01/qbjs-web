@@ -22,7 +22,7 @@
         <script type="text/javascript" src="util/hexy.js"></script>
 
         <script type="text/javascript" src="codemirror/lang/css.js"></script>
-        <script type="text="text/javascript" src="codemirror/lang/clike.js"></script>
+        <script type="text/javascript" src="codemirror/lang/clike.js"></script>
         <script type="text/javascript" src="codemirror/lang/javascript.js"></script>
         <script type="text/javascript" src="codemirror/lang/markdown.js"></script>
         <script type="text/javascript" src="codemirror/lang/python.js"></script>
@@ -71,6 +71,13 @@
         <div id="game-container">
             <div id="gx-container">
                 <a href="javascript:runProgram()" id="gx-load-screen">&nbsp;</a>
+
+                <input 
+                    id="gx-hidden-input" 
+                    type="text" 
+                    inputmode="text"
+                    style="position:absolute;opacity:0;pointer-events:none;height:0;width:0;"
+                />
             </div>
             <div id="vslider"></div>
             <div id="output-container">
@@ -221,36 +228,50 @@
     <script language="javascript" src="vfs.js"></script>
     <script language="javascript" src="gx/gx.js"></script>
     <script language="javascript" src="qb.js"></script>
-    
-    <script language="javascript">
-        if (typeof QB !== 'undefined' && typeof QB.init === 'function') {
-            QB.init();
-        }
-    </script>
-    
     <script language="javascript" src="qb2js.js"></script>
     <script language="javascript" src="githelp.js"></script>
     <script language="javascript" src="qbjs-ide.js"></script>
     
     <script language="javascript">
-        if (window.initialQBasicCode) {
-            const codeToLoad = window.initialQBasicCode;
-            setTimeout(() => {
-                let codeExecuted = false;
-                if (typeof window.loadCode === 'function' && window.loadCode.toString().indexOf('initialQBasicCode') === -1) {
-                    window.loadCode(codeToLoad);
-                    codeExecuted = true;
-                } 
-                else if (typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
-                    IDE.loadCode(codeToLoad);
-                    codeExecuted = true;
-                }
-                if (!codeExecuted) {
-                    console.error("ERROR: Cannot find a valid loadCode function to execute the stored code.");
-                }
-                delete window.initialQBasicCode; 
-            }, 500);
-        }
+        // NOTE: To fix the "Identifier 'VFS' has already been declared" error, 
+        // you MUST ensure the definition of VFS is REMOVED from the 'gx/gx.js' file.
+
+        window.onload = function() {
+            // 1. Initialize the QB runtime
+            if (typeof QB !== 'undefined' && typeof QB.init === 'function') {
+                QB.init();
+            }
+
+            // 2. Initialize the IDE and make the body visible
+            // This fix addresses the "Cannot read properties of undefined (reading 'sceneActive')" TypeError.
+            if (typeof IDE !== 'undefined' && typeof IDE.init === 'function') {
+                IDE.init();
+                // IDE.init() should remove the 'display:none' style, making the page visible.
+            } else {
+                // Fallback to manually show the page if IDE.init is missing or fails
+                document.body.style.display = 'block';
+            }
+            
+            // 3. Handle initial code loading
+            if (window.initialQBasicCode) {
+                const codeToLoad = window.initialQBasicCode;
+                setTimeout(() => {
+                    let codeExecuted = false;
+                    if (typeof window.loadCode === 'function' && window.loadCode.toString().indexOf('initialQBasicCode') === -1) {
+                        window.loadCode(codeToLoad);
+                        codeExecuted = true;
+                    } 
+                    else if (typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
+                        IDE.loadCode(codeToLoad);
+                        codeExecuted = true;
+                    }
+                    if (!codeExecuted) {
+                        console.error("ERROR: Cannot find a valid loadCode function to execute the stored code.");
+                    }
+                    delete window.initialQBasicCode; 
+                }, 500);
+            }
+        };
     </script>
     
 </html>
