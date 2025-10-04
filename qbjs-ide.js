@@ -261,6 +261,38 @@ var IDE = new function() {
         if (appMode == "auto") {
             _runProgram();
         }
+
+        // --- mobile keyboard support ---
+        const mobileInput = document.createElement("input");
+        mobileInput.type = "text";
+        mobileInput.id = "mobile-console-input"; // Added ID for potential debugging/reference
+        mobileInput.style.position = "absolute";
+        mobileInput.style.opacity = "0";
+        mobileInput.style.height = "1px";
+        mobileInput.style.width = "1px";
+        mobileInput.style.zIndex = "-1";
+        document.body.appendChild(mobileInput);
+
+        _e.outputContainer.addEventListener("click", () => {
+            if (/Mobi|Android/i.test(navigator.userAgent)) {
+                mobileInput.focus();
+            }
+        });
+
+        mobileInput.addEventListener("input", (e) => {
+            const val = e.target.value;
+            if (val.length > 0) {
+                // Assuming QB.keyPress is the function to handle console input
+                // If not, replace with the correct function for your console.
+                if (typeof QB !== 'undefined' && typeof QB.keyPress === 'function') {
+                    QB.keyPress(val); 
+                } else {
+                    console.warn("QB.keyPress function not found. Mobile input might not be handled correctly.");
+                }
+                e.target.value = ""; // clear after each keystroke
+            }
+        });
+        // End mobile keyboard support
     }    
 
     function _getErrorLine(error, stackDepth) {
@@ -446,7 +478,15 @@ var IDE = new function() {
             QB.halt();
             GX.sceneStop();
         }
-        _e.gxContainer.focus();
+        // Optional Enhancement: Focus the hidden input on mobile for console interaction
+        if (/Mobi|Android/i.test(navigator.userAgent)) {
+            const mobileInput = document.getElementById("mobile-console-input");
+            if (mobileInput) {
+                mobileInput.focus();
+            }
+        } else {
+            _e.gxContainer.focus();
+        }
 
         return false;
     }
