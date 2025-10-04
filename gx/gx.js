@@ -2201,8 +2201,8 @@ var GX = new function() {
             case GX.KEY_LWIN: k = "LWin"; break;
             case GX.KEY_RWIN: k = "RWin"; break;
             case GX.KEY_MENU: k = "Menu"; break;
-            case GX.KEY_LALT: k = "LAlt"; break;
-            case GX.KEY_RALT: k = "RAlt"; break;
+            case GX.KEY_LALT = "AltLeft";
+            case GX.KEY_RALT = "AltRight";
             default: k = inputId; break; // Fallback for unknown keys
         }
         return k;
@@ -2738,6 +2738,13 @@ var GX = new function() {
             hiddenInput.type = "text";
             hiddenInput.inputMode = "text";
         }
+        // Ensure the input is positioned correctly and interactive before focusing
+        hiddenInput.style.left = '0px'; // Bring it to a visible (though still small) position
+        hiddenInput.style.top = '0px';
+        hiddenInput.style.width = '1px';
+        hiddenInput.style.height = '1px';
+        hiddenInput.style.opacity = '1';
+        hiddenInput.style.pointerEvents = 'auto'; // CRITICAL: Ensure the element is interactive
         hiddenInput.focus(); // ensure keyboard appears
     }
 
@@ -2750,6 +2757,21 @@ var GX = new function() {
         GXSetInputMode("text");
     };
 
+    // Function to hide the input element after use
+    function GXHideInput() {
+        if (hiddenInput) {
+            hiddenInput.blur(); // Remove focus to dismiss keyboard
+            // Move it off-screen and make it effectively invisible but still interactive
+            hiddenInput.style.left = '-9999px';
+            hiddenInput.style.top = '-9999px';
+            hiddenInput.style.width = '1px'; // Keep a minimal size
+            hiddenInput.style.height = '1px';
+            hiddenInput.style.opacity = '1'; // Keep opacity 1
+            hiddenInput.style.pointerEvents = 'auto'; // Keep pointer-events auto
+        }
+    }
+    this.hideInput = GXHideInput; // Expose hideInput as a public method
+
     // Add this to your _init function to set up the hidden input listeners
     var originalInit = this.init;
     this.init = function() {
@@ -2757,14 +2779,15 @@ var GX = new function() {
 
         hiddenInput = document.getElementById("gx-hidden-input");
         if (hiddenInput) {
-            // When canvas is touched, focus the hidden input to bring up the keyboard
-            // This is now handled by the canvas's touchstart event listener already present
-            // in _sceneCreate, which calls _mouseButtons[0] = -1 and _mouseInputFlag = true.
-            // We need to ensure that if a touch happens, the hiddenInput gets focus.
-            // The existing canvas touchstart prevents default, so we need to explicitly focus.
-            // However, directly focusing on touchstart might interfere with game input.
-            // A better approach is to only focus when an input is *requested* by the game.
-            // So, the `GX.requestNumberInput()` and `GX.requestTextInput()` functions will handle focusing.
+            // Initial state: hidden off-screen but interactive
+            hiddenInput.style.position = 'absolute';
+            hiddenInput.style.left = '-9999px';
+            hiddenInput.style.top = '-9999px';
+            hiddenInput.style.width = '1px';
+            hiddenInput.style.height = '1px';
+            hiddenInput.style.opacity = '1'; // Keep opacity at 1 so the OS knows it's a real input
+            hiddenInput.style.pointerEvents = 'auto'; // Keep pointer-events active
+            hiddenInput.style.zIndex = '-1'; // Ensure it's behind everything
 
             // Listen for actual text typed
             hiddenInput.addEventListener("input", (e) => {
@@ -2786,6 +2809,8 @@ var GX = new function() {
 
             // Handle blur event for the hidden input
             hiddenInput.addEventListener("blur", () => {
+                // When the input loses focus (e.g., keyboard dismissed), hide it again
+                GXHideInput();
                 // Optional: You might want to send an event to your game when the keyboard is dismissed
                 // e.g., _onGameEvent({ event: "KEYBOARD_DISMISSED" });
             });
