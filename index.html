@@ -72,11 +72,15 @@
             <div id="gx-container">
                 <a href="javascript:runProgram()" id="gx-load-screen">&nbsp;</a>
 
+                <!-- ✅ Hidden input for mobile keyboard -->
                 <input 
                     id="gx-hidden-input" 
                     type="text" 
                     inputmode="text"
-                    style="position:absolute;opacity:0;pointer-events:none;height:0;width:0;"
+                    autocapitalize="none"
+                    autocomplete="off"
+                    spellcheck="false"
+                    style="position:absolute;opacity:0;pointer-events:none;height:0;width:0;z-index:-1;"
                 />
             </div>
             <div id="vslider"></div>
@@ -234,17 +238,43 @@
     
     <script>
         window.onload = function() {
+            // ✅ Fix missing touch button warnings safely
+            if (typeof setupTouchButton === 'function') {
+                const oldSetupTouchButton = setupTouchButton;
+                window.setupTouchButton = function(id, key) {
+                    const el = document.getElementById(id);
+                    if (!el) return; // safely skip if missing
+                    oldSetupTouchButton(id, key);
+                };
+            }
+
+            // ✅ Fix: mobile virtual keyboard trigger
+            const hiddenInput = document.getElementById('gx-hidden-input');
+            const gxContainer = document.getElementById('gx-container');
+            if (hiddenInput && gxContainer) {
+                gxContainer.addEventListener('touchstart', () => {
+                    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+                        hiddenInput.focus();
+                    }
+                });
+                hiddenInput.addEventListener('input', (e) => {
+                    const val = e.target.value;
+                    if (val && val.length > 0) {
+                        if (window.QB && typeof QB.keyPress === 'function') QB.keyPress(val);
+                        e.target.value = '';
+                    }
+                });
+            }
+
             // 1. Initialize the QB runtime
             if (typeof QB !== 'undefined' && typeof QB.init === 'function') {
                 QB.init();
             }
 
             // 2. Initialize the IDE and make the body visible
-            // This structure helps mitigate the "Cannot read properties of undefined (reading 'sceneActive')" TypeError.
             if (typeof IDE !== 'undefined' && typeof IDE.init === 'function') {
                 IDE.init();
             } else {
-                // Fallback to manually show the page if IDE.init is missing or fails
                 document.body.style.display = 'block';
             }
             
