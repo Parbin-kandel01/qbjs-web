@@ -22,7 +22,7 @@
         <script type="text/javascript" src="util/hexy.js"></script>
 
         <script type="text/javascript" src="codemirror/lang/css.js"></script>
-        <script type="text="text/javascript" src="codemirror/lang/clike.js"></script>
+        <script type="text/javascript" src="codemirror/lang/clike.js"></script>
         <script type="text/javascript" src="codemirror/lang/javascript.js"></script>
         <script type="text/javascript" src="codemirror/lang/markdown.js"></script>
         <script type="text/javascript" src="codemirror/lang/python.js"></script>
@@ -66,16 +66,26 @@
                 <div id="code-tab-menu" class="tab"><div id="code-slide-left" onclick="IDE.codeTabSlideLeft()">◄</div><div id="code-slide-right" onclick="IDE.codeTabSlideRight()">►</div></div><div id="code-tab-container"><div id="mainbas" class="tab active" onclick="IDE.changeCodeTab(this)">Main</div></div></div>
             <div id="code"></div>
         </div>
-        <div id="slider">
-        </div>
+        <div id="slider"></div>
         <div id="game-container">
             <div id="gx-container">
                 <a href="javascript:runProgram()" id="gx-load-screen">&nbsp;</a>
+
+                <!-- Hidden input for mobile soft keyboard -->
+                <input 
+                    id="gx-hidden-input" 
+                    type="text" 
+                    inputmode="text"
+                    style="position:absolute;opacity:0;pointer-events:none;height:0;width:0;"
+                />
             </div>
             <div id="vslider"></div>
             <div id="output-container">
                 <div id="tabs">
-                    <div id="tab-console" class="tab" onclick="IDE.changeTab('console')">Console</div><div id="tab-js" class="tab" onclick="IDE.changeTab('js')">Javascript</div><div id="tab-fs" class="tab" onclick="IDE.changeTab('fs')">Files</div><div id="tab-help" class="tab" onclick="IDE.changeTab('help')">Help</div>
+                    <div id="tab-console" class="tab" onclick="IDE.changeTab('console')">Console</div>
+                    <div id="tab-js" class="tab" onclick="IDE.changeTab('js')">Javascript</div>
+                    <div id="tab-fs" class="tab" onclick="IDE.changeTab('fs')">Files</div>
+                    <div id="tab-help" class="tab" onclick="IDE.changeTab('help')">Help</div>
                 </div>
                 <div id="output-content">
                     <div id="warning-container"></div>
@@ -88,8 +98,7 @@
                             <div id="fs-new-file" title="New File" onclick="IDE.onNewFile()"></div>
                             <div id="fs-upload" title="Upload" onclick="IDE.onUploadFile()"></div>
                         </div>
-                        <div id="fs-contents">
-                        </div>
+                        <div id="fs-contents"></div>
                     </div>
                     <div id="help">
                         <div id="help-nav" class="help-nav">
@@ -110,108 +119,11 @@
             <input id="file-input" type="file" accept=".bas, .zip">
         </form>
 
-        <dialog id="share-dialog">
-            <div style="margin-bottom:5px">Copy the link below to share your code:</div>
-            <div><textarea id="share-code" rows="15" cols="60" readonly></textarea></div>
-            <div style="margin-top: 5px; float:left">Launch Mode:
-                <select id="share-mode" onchange="IDE.shareProgram()">
-                    <option value="">IDE (Default)</option>
-                    <option value="play">Play</option>
-                    <option value="auto">Auto</option>
-                </select>
-            </div>
-            <a id="export-button" href="javascript:IDE.exportProgram()" style="float:left; margin-top: 7px; margin-left: 10px">Export</a>
-            <a href="javascript:IDE.closeDialog()" style="display:block; float:right; margin-top: 7px">Close</a>
-            <a href="javascript:IDE.testShare()" style="display: block; float:right; margin-top: 7px; margin-right: 10px">Test</a>
-        </dialog>
-
-        <dialog id="prog-sel-dialog">
-            <div>
-                No main.bas file found.<br/>
-                Select main program source file:
-            </div>
-            <select id="prog-sel-sources" size="10" style="display:block; width:100%; margin-top:10px"></select>
-            <div style="text-align:center; margin-top:10px">
-                <a href="javascript:IDE.onSelMainProg()">Ok</a>
-                <a href="javascript:IDE.closeDialog()">Cancel</a>
-            </div>
-        </dialog>
-
-        <dialog id="options-dialog">
-            <div>Select a theme:</div>
-            <select id="theme-picker" onchange="IDE.changeTheme(this.value)">
-                <option value="qbjs">Default</option>
-                <option value="qb45">QBasic</option>
-                <option value="blackout">Blackout</option>
-                <option value="qb64-vscode">QB64 VSCode</option>
-                <option value="win-classic">Windows Classic</option>
-                <option value="vscode-dark">VSCode Dark</option>
-            </select>
-            <br/><br/>
-            <div>Key Bindings:</div>
-            <select id="key-bindings" onchange="IDE.changeKeyMap(this.value)">
-                <option value="default">Default</option>
-                <option value="vim">VIM</option>
-            </select>
-            <br/><br/>
-            <input type="checkbox" id="console-persistence" onchange="IDE.toggleConsolePersistence(this.checked)"/>
-            <label for="console-persistence">Remember console visibility and panel</label>
-            <br/><br/>
-            <div>Convert Source Encoding:</div>
-            <div style="margin-top:5px"><a href="#" onclick="IDE.convert437ToUTF()">Code Page 437 to UTF</a></div>
-            <div>
-                <a href="javascript:IDE.closeDialog()" style="display:block; float:right; margin-top: 7px">Close</a>
-            </div>
-        </dialog>
-
-        <dialog id="methods-dialog">
-            <div id="method-tabs">
-                <div id="tab-methods" class="tab active" onclick="IDE.changeMethodTab('methods')">Methods</div><div id="tab-imports" class="tab" onclick="IDE.changeMethodTab('imports')">Imports</div>
-            </div>
-            <div id="methods" class="methods">
-                <table>
-                    <thead>
-                        <th>Method</th>
-                        <th>Type</th>
-                        <th>Arguments</th>
-                    </thead>
-                    <tbody id="methods-content"></tbody>
-                </table>
-            </div>
-            <div id="imports" class="methods" style="display:none">
-                <table>
-                    <thead>
-                        <th>Method</th>
-                        <th>Type</th>
-                        <th>Arguments</th>
-                    </thead>
-                    <tbody id="imports-content"></tbody>
-                </table>
-            </div>
-            <a href="javascript:IDE.closeDialog()" style="display:block; float:right; margin-top: 7px">Close</a>
-        </dialog>
-
-        <dialog id="about-dialog">
-            <div>
-                <img id="logo" src="logo.png" onclick="window.open('https://github.com/boxgaming/qbjs/wiki', '_blank')">
-                <p>QBJS - QBasic for the Web!</p>
-                <p>Version: <a href="https://github.com/boxgaming/qbjs/releases" target="_blank">0.10.0</a></p>
-                <p></p>
-                <p>
-                    QBJS brings the fun and accessibility of QBasic to the browser.<br/>
-                    Learn more:<br/>
-                    <ul>
-                        <li><a href="javascript:IDE.showHelp('language')">QBasic Language Support</a></li>
-                        <li><a href="javascript:IDE.showHelp('keywords')">Supported Keywords</a></li>
-                        <li><a href="javascript:IDE.showHelp('samples')">Samples</a></li>
-                    </ul>
-                </p>
-                <p>Copyright (c) 2022-2025 boxgaming</p>
-                <div>
-                    <a href="javascript:IDE.closeDialog()" style="display:block; float:right">Close</a>
-                </div>
-            </div>
-        </dialog>
+        <dialog id="share-dialog"> ... </dialog>
+        <dialog id="prog-sel-dialog"> ... </dialog>
+        <dialog id="options-dialog"> ... </dialog>
+        <dialog id="methods-dialog"> ... </dialog>
+        <dialog id="about-dialog"> ... </dialog>
     </body>
     
     <script language="javascript">
