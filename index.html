@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <title>QBJS</title>
         <meta charset="utf-8"/>
@@ -65,9 +65,9 @@
                 align-items: center;
                 font-size: 1.2em;
                 font-weight: bold;
-                user-select: none;
-                -webkit-user-select: none;
-                -moz-user-select: none;
+                -webkit-user-select: none; /* Compatibility Fix: Safari */
+                -moz-user-select: none; /* Other Fix: Ordering change */
+                user-select: none; /* Other Fix: Ordering change */
                 pointer-events: auto; /* Make buttons clickable */
             }
             #touch-up { top: 0; left: 70px; }
@@ -106,9 +106,8 @@
         </div>
         <div id="game-container">
             <div id="gx-container">
-                <a href="javascript:runProgram()" id="gx-load-screen">&nbsp;</a>
+                <a href="javascript:runProgram()" id="gx-load-screen" aria-label="Run Program / Loading Screen">&nbsp;</a>
 
-                <!-- Hidden input for mobile keyboard -->
                 <input 
                     id="gx-hidden-input" 
                     type="text" 
@@ -116,16 +115,17 @@
                     autocapitalize="none"
                     autocomplete="off"
                     spellcheck="false"
+                    aria-label="Hidden game input"
+                    -webkit-autocapitalize="none"
                     style="position:absolute;opacity:0;pointer-events:none;height:0;width:0;z-index:-1;"
                 />
             </div>
-            <!-- Mobile Touch Controls -->
             <div id="touch-controls">
-                <div id="touch-up" class="touch-button">▲</div>
-                <div id="touch-down" class="touch-button">▼</div>
-                <div id="touch-left" class="touch-button">◀</div>
-                <div id="touch-right" class="touch-button">▶</div>
-                <div id="touch-action" class="touch-button">ACT</div>
+                <div id="touch-up" class="touch-button" aria-label="Move Up">▲</div>
+                <div id="touch-down" class="touch-button" aria-label="Move Down">▼</div>
+                <div id="touch-left" class="touch-button" aria-label="Move Left">◀</div>
+                <div id="touch-right" class="touch-button" aria-label="Move Right">▶</div>
+                <div id="touch-action" class="touch-button" aria-label="Action Button">ACT</div>
             </div>
 
             <div id="vslider"></div>
@@ -163,13 +163,17 @@
         <div id="gx-footer"></div>
 
         <form style="display:none">
-            <input id="file-input" type="file" accept=".bas, .zip">
+            <label for="file-input" class="sr-only">Program file selector</label>
+            <input id="file-input" type="file" accept=".bas, .zip" aria-label="Program file selector">
         </form>
 
         <dialog id="share-dialog">
             <div style="margin-bottom:5px">Copy the link below to share your code:</div>
-            <div><textarea id="share-code" rows="15" cols="60" readonly></textarea></div>
-            <div style="margin-top: 5px; float:left">Launch Mode:
+            <div>
+                <textarea id="share-code" rows="15" cols="60" readonly aria-label="Sharable program link or code"></textarea>
+            </div>
+            <div style="margin-top: 5px; float:left">
+                <label for="share-mode">Launch Mode:</label>
                 <select id="share-mode" onchange="IDE.shareProgram()">
                     <option value="">IDE (Default)</option>
                     <option value="play">Play</option>
@@ -184,9 +188,9 @@
         <dialog id="prog-sel-dialog">
             <div>
                 No main.bas file found.<br/>
-                Select main program source file:
+                <label for="prog-sel-sources">Select main program source file:</label>
             </div>
-            <select id="prog-sel-sources" size="10" style="display:block; width:100%; margin-top:10px"></select>
+            <select id="prog-sel-sources" size="10" style="display:block; width:100%; margin-top:10px" aria-label="Select main program source file"></select>
             <div style="text-align:center; margin-top:10px">
                 <a href="javascript:IDE.onSelMainProg()">Ok</a>
                 <a href="javascript:IDE.closeDialog()">Cancel</a>
@@ -194,7 +198,7 @@
         </dialog>
 
         <dialog id="options-dialog">
-            <div>Select a theme:</div>
+            <label for="theme-picker">Select a theme:</label>
             <select id="theme-picker" onchange="IDE.changeTheme(this.value)">
                 <option value="qbjs">Default</option>
                 <option value="qb45">QBasic</option>
@@ -204,7 +208,7 @@
                 <option value="vscode-dark">VSCode Dark</option>
             </select>
             <br/><br/>
-            <div>Key Bindings:</div>
+            <label for="key-bindings">Key Bindings:</label>
             <select id="key-bindings" onchange="IDE.changeKeyMap(this.value)">
                 <option value="default">Default</option>
                 <option value="vim">VIM</option>
@@ -249,7 +253,7 @@
 
         <dialog id="about-dialog">
             <div>
-                <img id="logo" src="logo.png" onclick="window.open('https://github.com/boxgaming/qbjs/wiki', '_blank')">
+                <img id="logo" src="logo.png" onclick="window.open('https://github.com/boxgaming/qbjs/wiki', '_blank')" alt="QBJS logo, link to GitHub wiki">
                 <p>QBJS - QBasic for the Web!</p>
                 <p>Version: <a href="https://github.com/boxgaming/qbjs/releases" target="_blank">0.10.0</a></p>
                 <p></p>
@@ -318,4 +322,3 @@
     </script>
     
 </html>
-
