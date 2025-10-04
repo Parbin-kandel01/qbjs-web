@@ -1,40 +1,4 @@
 var GX = new function() {
-    // --- Internal VFS and Pako definitions (moved inside GX to prevent global conflicts) ---
-    // Example VFS (Virtual File System) - You'll need a full implementation for this to work.
-    // This is a placeholder to prevent 'VFS is not defined' errors if you don't have one.
-    function VFS() {
-        this.rootDirectory = function() { return { name: '/', type: 'directory', children: [] }; };
-        this.getNode = function(path, cwd) {
-            // Minimal placeholder logic for map loading to avoid errors
-            if (path && path.includes("_gxtmp")) return { name: "_gxtmp", type: 'directory', children: [] };
-            if (path && path.includes("layer.dat")) return { name: "layer.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
-            if (path && path.includes("layer-i.dat")) return { name: "layer-i.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
-            if (path && path.includes("tileset.png")) return { name: "tileset.png", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
-            // For actual files, you'd need a proper VFS implementation
-            return null;
-        };
-        this.createDirectory = function(name, parent) { return { name: name, type: 'directory', children: [] }; };
-        this.createFile = function(name, parent) { return { name: name, type: 'file', data: new ArrayBuffer(0), byteLength: 0 }; };
-        this.writeData = function(file, data, offset = 0) { file.data = data; file.byteLength = data.byteLength; };
-        this.readText = function(file) { return new TextDecoder().decode(file.data); };
-        this.readData = function(file, offset, length) { return file.data.slice(offset, offset + length); };
-        this.textToData = function(text) { return new TextEncoder().encode(text).buffer; };
-        this.removeFile = function(file, parent) { };
-        this.getDataURL = async function(file) { return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; }; // Placeholder
-        this.getParentPath = function(filename) { return ''; };
-        this.getFileName = function(filename) { return filename; };
-        this.fullPath = function(file) { return file.name; };
-    }
-
-    // Example pako (compression library) - You'll need to include the actual pako library.
-    // This is a placeholder to prevent 'pako is not defined' errors.
-    const pako = {
-        inflate: function(data) { return data; }, // No actual inflation
-        deflate: function(data) { return data; }  // No actual deflation
-    };
-    // --- End of internal VFS and Pako definitions ---
-
-
     var _canvas = null;
 	var _ctx = null;
     var _framerate = 60;
@@ -43,13 +7,7 @@ var GX = new function() {
     var _entities = [];
     var _entities_active = [];
     var _entity_animations = [];
-    var _scene = { // Initialize _scene with default properties to prevent undefined errors
-        width: 0, height: 0, x: 0, y: 0,
-        scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0,
-        frame: 0, followMode: 0, followEntity: null,
-        constrainMode: 0, active: false,
-        columns: 0, rows: 0 // Added for _updateSceneSize
-    };
+    var _scene = {};
     var _tileset = {};
     var _tileset_tiles = [];
     var _tileset_animations = [];
@@ -66,10 +24,7 @@ var GX = new function() {
     var _fullscreenFlag = false;
     var __debug = {
         enabled: false,
-        font: 1, // GX.FONT_DEFAULT
-        tileBorderColor: undefined, // Initialize debug properties
-        entityBorderColor: undefined,
-        entityCollisionColor: undefined
+        font: 1 // GX.FONT_DEFAULT
     };
     var _sounds = [];
     var _sound_muted = false;
@@ -81,7 +36,7 @@ var GX = new function() {
     var _touchPos = { x:0, y:0 };
     var _bindTouchToMouse = true;
 
-    var _vfs = new VFS(); // Now VFS is defined within this scope
+    var _vfs = new VFS(); // Assuming VFS is defined elsewhere or will be provided
     var _vfsCwd = null;
 
     // javascript specific
@@ -123,13 +78,7 @@ var GX = new function() {
         _images = [];
         _entities = [];
         _entity_animations = [];
-        _scene = { // Re-initialize _scene on reset
-            width: 0, height: 0, x: 0, y: 0,
-            scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0,
-            frame: 0, followMode: 0, followEntity: null,
-            constrainMode: 0, active: false,
-            columns: 0, rows: 0
-        };
+        _scene = {};
         _tileset = {};
         _tileset_tiles = [];
         _tileset_animations = [];
@@ -150,10 +99,7 @@ var GX = new function() {
         _fullscreenFlag = false;
         __debug = {
             enabled: false,
-            font: 1, // GX.FONT_DEFAULT
-            tileBorderColor: undefined,
-            entityBorderColor: undefined,
-            entityCollisionColor: undefined
+            font: 1 // GX.FONT_DEFAULT
         };
         _sounds = [];
         _sound_muted = false;
@@ -309,7 +255,7 @@ var GX = new function() {
         _scene.followMode = GX.SCENE_FOLLOW_NONE;
         _scene.followEntity = null;
         _scene.constrainMode = GX.SCENE_CONSTRAIN_NONE;
-        _scene.active = false; // Ensure active is set
+        _scene.active = false;
 
         _customEvent(GX.EVENT_INIT);
     }
@@ -380,7 +326,7 @@ var GX = new function() {
         _entities_active = [];
         for (var ei=1; ei <= _entities.length; ei++) {
             var e = _entities[ei-1];
-            if (e && !e.screen) { // Check if entity 'e' exists
+            if (!e.screen) {
                 if (_rectCollide(e.x, e.y, e.width, e.height, GX.sceneX(), GX.sceneY(), GX.sceneWidth(), GX.sceneHeight())) {
                     _entities_active.push(ei);
                 }
@@ -395,7 +341,7 @@ var GX = new function() {
 
         for (var ei = 1; ei <= _entities.length; ei++) {
             var e = _entities[ei-1];
-            if (e && e.screen) { // Check if entity 'e' exists
+            if (e.screen) {
                 _entityDraw(e);
                 if (e.animate > 0) {
                     if (frame % (GX.frameRate() / e.animate) == 0) {
@@ -525,6 +471,17 @@ var GX = new function() {
         _scene.y = y;
     }
 
+    function _updateSceneSize() {
+        if (GX.tilesetWidth() < 1 || GX.tilesetHeight() < 1) { return; }
+        if (GX.mapIsometric()) {
+            _scene.columns = Math.floor(GX.sceneWidth() / GX.tilesetWidth());
+            _scene.rows = Math.floor(GX.sceneHeight() / (GX.tilesetWidth() / 4));
+        } else {
+            _scene.columns = Math.floor(GX.sceneWidth() / GX.tilesetWidth());
+            _scene.rows = Math.floor(GX.sceneHeight() / GX.tilesetHeight());
+        }
+    }
+
     // Event functions
     function _customEvent (eventType) {
         var e = {};
@@ -607,11 +564,6 @@ var GX = new function() {
     }
     
     function _spriteDrawScaled(i, x, y, dwidth, dheight, seq, frame, swidth, sheight) {
-        // Ensure _ctx and _image(i) are valid
-        if (!_ctx || !(_image(i) instanceof HTMLImageElement)) {
-            console.warn("Cannot draw sprite: invalid context or image.", {imageID: i, image: _image(i)});
-            return;
-        }
         var xoffset, yoffset;
         xoffset = (frame - 1) * swidth;
         yoffset = (seq - 1) * sheight;
@@ -633,16 +585,11 @@ var GX = new function() {
     }
 
     function _backgroundWrapFactor(bi, wrapFactor) {
-        if (_bg[bi-1]) { // Check if background exists
-            _bg[bi-1].wrapFactor = wrapFactor;
-        }
+        _bg[bi-1].wrapFactor = wrapFactor;
     }
 
     function _backgroundDraw (bi) {
         bi--;
-        if (!_bg[bi] || !_image(_bg[bi].image)) { // Check if background and its image exist
-            return;
-        }
 
         if (_bg[bi].mode == GX.BG_STRETCH) {
             _ctx.drawImage(_image(_bg[bi].image), 0, 0, _scene.width, _scene.height);
@@ -711,10 +658,8 @@ var GX = new function() {
 
     // Sound Methods
     function _soundClose (sid) {
-        if (_sounds[sid-1]) { // Check if sound exists before pausing
-            _sounds[sid-1].pause();
-            _sounds[sid-1] = undefined;
-        }
+        _sounds[sid-1].pause();
+        _sounds[sid-1] = undefined;
     }
 
     async function _soundLoad (filename) {
@@ -733,36 +678,30 @@ var GX = new function() {
     }
 
     function _soundPlay (sid) {
-        if (!GX.soundMuted() && _sounds[sid-1]) { // Check if sound exists
+        if (!GX.soundMuted()) {
             _sounds[sid-1].loop = false;
             _sounds[sid-1].play();
         }
     }
 
     function _soundRepeat (sid) {
-        if (!GX.soundMuted() && _sounds[sid-1]) { // Check if sound exists
+        if (!GX.soundMuted()) {
             _sounds[sid-1].loop = true;
             _sounds[sid-1].play();
         }
     }
 
     function _soundVolume (sid, v) {
-        if (_sounds[sid-1]) { // Check if sound exists
-            _sounds[sid-1].volume = v / 100;
-        }
+        _sounds[sid-1].volume = v / 100;
     }
 
     function _soundPause (sid) {
-        if (_sounds[sid-1]) { // Check if sound exists
-            _sounds[sid-1].pause();
-        }
+        _sounds[sid-1].pause();
     }
 
     function _soundStop (sid) {
-        if (_sounds[sid-1]) { // Check if sound exists
-            _sounds[sid-1].pause();
-            _sounds[sid-1].currentTime = 0;
-        }
+        _sounds[sid-1].pause();
+        _sounds[sid-1].currentTime = 0;
     }
 
     function _soundStopAll () {
@@ -792,10 +731,7 @@ var GX = new function() {
         newent.width = ewidth;
         newent.sequences = 1;
         newent.image = _imageLoad(imageFilename, function() {
-            // Ensure _images[newent.image-1] exists before accessing its properties
-            if (_images[newent.image-1]) {
-                newent.sequences = Math.floor(_images[newent.image-1].height / height);
-            }
+            newent.sequences = Math.floor(_images[newent.image-1].height / height);
         });
         newent.spriteFrame = 1;
         newent.spriteSeq = 1;
@@ -807,9 +743,8 @@ var GX = new function() {
         newent.coRight = 0;
         newent.coBottom = 0;
         newent.applyGravity = false;
-        // newent.sequences = 0; // This line seems to reset sequences after it's potentially set by imageLoad callback
+        newent.sequences = 0;
         newent.mapLayer = 0;
-        newent.screen = false; // Initialize screen property
 
         _entities.push(newent);
         
@@ -821,14 +756,12 @@ var GX = new function() {
     
     function _screenEntityCreate (imageFilename, ewidth, height, seqFrames, uid) {
         var eid = _entityCreate(imageFilename, ewidth, height, seqFrames, uid);
-        if (_entities[eid-1]) { // Ensure entity exists
-            _entities[eid-1].screen = true;
-        }
+        _entities[eid-1].screen = true;
         return eid;
     }
 
     function _entityDraw (ent) {
-        if (!ent || ent.hidden) { return; } // Check if ent exists
+        if (ent.hidden) { return; }
         var x, y;
         if (ent.screen) {
             x = ent.x
@@ -841,7 +774,6 @@ var GX = new function() {
     }    
 
     function _entityAnimate (eid, seq, a) {
-        if (!_entities[eid-1]) return; // Ensure entity exists
         _entities[eid-1].animate = a;
         _entities[eid-1].spriteSeq = seq;
         _entities[eid-1].seqFrames = _entityGetFrames(eid, seq);
@@ -852,23 +784,20 @@ var GX = new function() {
     }
 
     function _entityGetFrames (eid, seq) {
-        if (!_entities[eid-1]) return 0; // Ensure entity exists
         var a = _entity_animations[eid-1];
-        if (a && a[seq-1] != undefined) { // Check if animation sequence exists
-            return a[seq-1].frames;
+        if (a[seq-1] == undefined) {
+            return _entities[eid-1].seqFrames;
         }
         else {
-            return _entities[eid-1].seqFrames;
+            return a[seq-1].frames;
         }
     }
 
     function _entityAnimateStop (eid) {
-        if (!_entities[eid-1]) return; // Ensure entity exists
         _entities[eid-1].animate = 0;
     }
 
     function _entityAnimateMode (eid, mode) {
-        if (!_entities[eid-1]) return 0; // Ensure entity exists
         if (mode != undefined) {
         	_entities[eid-1].animateMode = mode;
         }
@@ -876,19 +805,17 @@ var GX = new function() {
     }
 
     function _entityMove (eid, x, y) {
-        if (eid == undefined || eid < 1 || !_entities[eid-1]) { return; } // Ensure entity exists
+        if (eid == undefined || eid < 1) { return; }
         _entities[eid-1].x += x;
         _entities[eid-1].y += y;
     }
 
 	function _entityPos (eid, x, y) {
-        if (!_entities[eid-1]) return; // Ensure entity exists
         _entities[eid-1].x = x;
         _entities[eid-1].y = y;
     }
 
     function _entityVX (eid, vx) {
-        if (!_entities[eid-1]) return 0; // Ensure entity exists
         if (vx != undefined) {
             _entities[eid-1].vx = vx;
         }
@@ -896,7 +823,6 @@ var GX = new function() {
     }
 
     function _entityVY (eid, vy) {
-        if (!_entities[eid-1]) return 0; // Ensure entity exists
         if (vy != undefined) {
         	_entities[eid-1].vy = vy;
         }
@@ -904,20 +830,18 @@ var GX = new function() {
     }
 
     function _entityVisible (eid, visible) {
-        if (!_entities[eid-1]) return 0; // Ensure entity exists
         if (visible != undefined) {
             _entities[eid-1].hidden = !visible;
         }
         return _qbBoolean(!_entities[eid-1].hidden);
     }
 
-    function _entityX (eid) { return _entities[eid-1] ? _entities[eid-1].x : 0; } // Add checks
-    function _entityY (eid) { return _entities[eid-1] ? _entities[eid-1].y : 0; }
-    function _entityWidth (eid) { return _entities[eid-1] ? _entities[eid-1].width : 0; }
-    function _entityHeight (eid) { return _entities[eid-1] ? _entities[eid-1].height : 0; }
+    function _entityX (eid) { return _entities[eid-1].x; }
+    function _entityY (eid) { return _entities[eid-1].y; }
+    function _entityWidth (eid) { return _entities[eid-1].width; }
+    function _entityHeight (eid) { return _entities[eid-1].height; }
     
     function _entityFrameNext (eid) {
-        if (!_entities[eid-1]) return; // Ensure entity exists
         if (_entities[eid-1].animateMode == GX.ANIMATE_SINGLE) {
             if (_entities[eid-1].spriteFrame + 1 > _entities[eid-1].seqFrames) {
                 if (_entities[eid-1].spriteFrame != _entities[eid-1].prevFrame) {
@@ -942,7 +866,6 @@ var GX = new function() {
     }
 
     function _entityFrameSet (eid, seq, frame) {
-        if (!_entities[eid-1]) return; // Ensure entity exists
         _entities[eid-1].spriteSeq = seq;
         _entities[eid-1].seqFrames = _entityGetFrames(eid, seq);
         _entities[eid-1].spriteFrame = frame;
@@ -950,32 +873,26 @@ var GX = new function() {
     }
 
     function _entityFrame (eid) {
-        return _entities[eid-1] ? _entities[eid-1].spriteFrame : 0;
+        return _entities[eid-1].spriteFrame;
     }
 
     function _entitySequence (eid) {
-        return _entities[eid-1] ? _entities[eid-1].spriteSeq : 0;
+        return _entities[eid-1].spriteSeq;
     }
 
     function _entitySequences (eid) {
-        return _entities[eid-1] ? _entities[eid-1].sequences : 0;
+        return _entities[eid-1].sequences;
     }
 
     function _entityFrames (eid, seq, frames) {
-        if (!_entities[eid-1]) return 0; // Ensure entity exists
-        // console.log(eid + ":" + seq + ":" + frames); // Removed console.log for cleaner code
+        console.log(eid + ":" + seq + ":" + frames);
         if (frames != undefined) {
-            // Ensure _entity_animations[eid-1] exists and is an array
-            if (!_entity_animations[eid-1]) {
-                _entity_animations[eid-1] = [];
-            }
             _entity_animations[eid-1][seq-1] = { frames: frames };
         }
         return _entityGetFrames(eid, seq);
     }
 
     function _entityType (eid, etype) {
-        if (!_entities[eid-1]) return undefined; // Ensure entity exists
         if (etype != undefined) {
         	_entities[eid-1].type = etype;
         }
@@ -983,7 +900,6 @@ var GX = new function() {
 	}
 
     function _entityMapLayer (eid, layer) {
-        if (!_entities[eid-1]) return 0; // Ensure entity exists
         if (layer != undefined) {
             _entities[eid-1].mapLayer = layer;
         }
@@ -996,7 +912,7 @@ var GX = new function() {
         for (var i=0; i < _entities_active.length; i++) {
             var ei = _entities_active[i];
             var e = _entities[ei-1];
-            if (e && e.mapLayer == layer) { // Check if entity 'e' exists
+            if (e.mapLayer == layer) {
                 _entityDraw(e);
                 if (e.animate > 0) {
                     if (frame % (GX.frameRate() / e.animate) == 0) {
@@ -1008,7 +924,6 @@ var GX = new function() {
     }
 
     function _entityApplyGravity (eid, gravity) {
-        if (!_entities[eid-1]) return false; // Ensure entity exists
         if (gravity != undefined) {
             _entities[eid-1].applyGravity = gravity;
             _entities[eid-1].jumpstart = GX.frame();
@@ -1017,7 +932,6 @@ var GX = new function() {
     }
 
     function _entityCollisionOffset (eid, left, top, right, bottom) {
-        if (!_entities[eid-1]) return; // Ensure entity exists
         _entities[eid-1].coLeft = left;
         _entities[eid-1].coTop = top;
         _entities[eid-1].coRight = right;
@@ -1025,19 +939,19 @@ var GX = new function() {
     }
 
     function _entityCollisionOffsetLeft (eid) {
-        return _entities[eid-1] ? _entities[eid-1].coLeft : 0;
+        return _entities[eid-1].coLeft;
     }
 
     function _entityCollisionOffsetTop (eid) {
-        return _entities[eid-1] ? _entities[eid-1].coTop : 0;
+        return _entities[eid-1].coTop;
     }
 
     function _entityCollisionOffsetRight (eid) {
-        return _entities[eid-1] ? _entities[eid-1].coRight : 0;
+        return _entities[eid-1].coRight;
     }
 
     function _entityCollisionOffsetBottom (eid) {
-        return _entities[eid-1] ? _entities[eid-1].coBottom : 0;
+        return _entities[eid-1].coBottom;
     }
 
     // Map methods
@@ -1048,10 +962,10 @@ var GX = new function() {
         _map.version = 2;
         _map.isometric = false;
 
-        // var layerSize = rows * columns; // This variable is not used
+        var layerSize = rows * columns;
         _map_layers = [];
         for (var i=0; i < layers; i++) {
-            _map_layers.push(_mapLayerInit(columns, rows)); // Pass columns and rows to init
+            _map_layers.push(_mapLayerInit());
         }
         _map_layer_info = [];
         for (var i=0; i < layers; i++) {
@@ -1082,7 +996,6 @@ var GX = new function() {
         }
         catch (ex) {
             // if the load fails try falling back to the older JSON format
-            console.warn("MapLoadV2 failed, attempting JSON fallback:", ex); // Added warning
             _map_loading = true;
             var data = null;
             var file = _vfs.getNode(filename, _vfsCwd);
@@ -1151,8 +1064,8 @@ var GX = new function() {
         vfs.removeFile(ldataFile, tmpDir);
     
         // read the tileset data
-        var tsVersion = readInt(fh); // tsVersion is unused
-        var tsFilename = readString(fh); // tsFilename is unused
+        var tsVersion = readInt(fh);
+        var tsFilename = readString(fh);
         var tsWidth = readInt(fh);
         var tsHeight = readInt(fh);
         var tsSize = readLong(fh);
@@ -1167,7 +1080,7 @@ var GX = new function() {
         // read the tileset tiles data
         var asize = readInt(fh);
         var tiles = [];
-        for (var i=0; i < 4; i++) { readInt(fh); } // These reads are unused
+        for (var i=0; i < 4; i++) { readInt(fh); }
         for (var i=1; i <= asize; i++) {
             readInt(fh); // not using id currently
             tiles.push([readInt(fh), readInt(fh), readInt(fh)]);
@@ -1176,7 +1089,7 @@ var GX = new function() {
         // read the tileset animations data
         asize = readInt(fh);
         var animations = [];
-        for (var i=0; i < 3; i++) { readInt(fh); } // These reads are unused
+        for (var i=0; i < 3; i++) { readInt(fh); }
         for (var i=1; i <= asize; i++) {
             animations.push([readInt(fh), readInt(fh), readInt(fh)]);
         }
@@ -1192,13 +1105,7 @@ var GX = new function() {
             for (var row=0; row < GX.mapRows(); row++) {
                 for (var col=0; col < GX.mapColumns(); col++) {
                     if (l > 0) {
-                        // Ensure ldata[li] is a valid index
-                        if (li < ldata.length) {
-                            GX.mapTile(col, row, l, ldata[li]);
-                        } else {
-                            console.warn(`_mapLoadV2: ldata index out of bounds at li=${li}`);
-                            GX.mapTile(col, row, l, 0); // Default to empty tile
-                        }
+                        GX.mapTile(col, row, l, ldata[li]);
                     }
                     li++;
                 }
@@ -1206,10 +1113,6 @@ var GX = new function() {
         }
         
         function readInt(fh) {
-            if (!fh.file || fh.pos + 2 > fh.file.data.byteLength) { // Check bounds
-                console.error("Attempted to read Int out of file bounds.");
-                return 0;
-            }
             var data = vfs.readData(fh.file, fh.pos, 2);
             var value = (new DataView(data)).getInt16(0, true);
             fh.pos += data.byteLength;
@@ -1217,10 +1120,6 @@ var GX = new function() {
         }
         
         function readLong(fh) {
-            if (!fh.file || fh.pos + 4 > fh.file.data.byteLength) { // Check bounds
-                console.error("Attempted to read Long out of file bounds.");
-                return 0;
-            }
             var data = vfs.readData(fh.file, fh.pos, 4);
             var value = (new DataView(data)).getInt32(0, true);
             fh.pos += data.byteLength;
@@ -1229,10 +1128,6 @@ var GX = new function() {
         
         function readString(fh) {
             var slen = readLong(fh);
-            if (!fh.file || fh.pos + slen > fh.file.data.byteLength) { // Check bounds
-                console.error("Attempted to read String out of file bounds.");
-                return "";
-            }
             var data = vfs.readData(fh.file, fh.pos, slen)
             var value = String.fromCharCode.apply(null, new Uint8Array(data))
             fh.pos += data.byteLength;
@@ -1252,7 +1147,7 @@ var GX = new function() {
         for (var i=0; i < dirs.length; i++) {
             if (dirs[i] == "") { continue; }
             var p = vfs.getNode(dirs[i], parentDir);
-            if (!p) { p = vfs.createDirectory(dirs[i], parentDir); } // Create if not found
+            if (!p) { p = vfs.getNode(dirs[i], parentDir); }
             parentDir = p;
         }
     
@@ -1268,14 +1163,20 @@ var GX = new function() {
         writeInt(fh, GX.mapLayers());
         writeInt(fh, GX.mapIsometric());
         
-        var size = (GX.mapLayers() || 0) * (GX.mapColumns() || 0) * (GX.mapRows() || 0); // Corrected size calculation, added checks
-        var ldata = new ArrayBuffer(size * 2); // Each tile is Int16 (2 bytes)
+        var size = (GX.mapLayers() + 1) * GX.mapColumns() * GX.mapRows() + GX.mapLayers();
+        var ldata = new ArrayBuffer(size * 2 + 4);
         var dview = new DataView(ldata);
-        var li = 0; // Index for dview
+        var li = GX.mapColumns() * GX.mapRows() * 2 + 1;
         for (var l=1; l <= GX.mapLayers(); l++) {
+            if (l > 1) { li+=2; }
             for (var row=0; row < GX.mapRows(); row++) {
                 for (var col=0; col < GX.mapColumns(); col++) {
-                    dview.setInt16(li, GX.mapTile(col, row, l), true);
+                    if (l == 0) { 
+                        dview.setInt16(li+1, 0, true);
+                    }
+                    else {
+                        dview.setInt16(li+1, GX.mapTile(col, row, l), true);
+                    }
                     li+=2;
                 }
             }
@@ -1293,22 +1194,17 @@ var GX = new function() {
         writeInt(fh, GX.tilesetHeight());
         
         // write the tileset png data
-        var tsfile = _vfs.getNode(_tileset.filename, _vfsCwd); // Use _vfs.getNode with current working directory
-        if (tsfile && tsfile.data) { // Ensure tsfile and its data exist
-            writeLong(fh, tsfile.data.byteLength);
-            vfs.writeData(fh.file, tsfile.data, fh.pos);
-            fh.pos += tsfile.data.byteLength;
-        } else {
-            writeLong(fh, 0); // Write 0 if no tileset image data
-            console.warn("Tileset image data not found for saving.");
-        }
-        fh.pos++; // This seems to be for padding or a separator
-
+        var tsfile = vfs.getNode(_tileset.filename);
+        writeLong(fh, tsfile.data.byteLength);
+        vfs.writeData(fh.file, tsfile.data, fh.pos);
+        fh.pos += tsfile.data.byteLength;
+        fh.pos++;
+        
         // write the tileset tiles data  
         writeInt(fh, _tileset_tiles.length);
-        for (var i=0; i < 4; i++) { writeInt(fh, 0); } // These are unused padding bytes
-        for (var i=0; i < _tileset_tiles.length; i++) {
-            writeInt(fh, 0); // Unused ID
+        for (var i=0; i < 4; i++) { writeInt(fh, 0); }
+        for (var i=1; i <= _tileset_tiles.length; i++) {
+            writeInt(fh, 0);
             writeInt(fh, _tileset_tiles[i].animationId);
             writeInt(fh, _tileset_tiles[i].animationSpeed);
             writeInt(fh, _tileset_tiles[i].animationFrame);
@@ -1316,11 +1212,150 @@ var GX = new function() {
 
         // write the tileset animations data
         writeInt(fh, _tileset_animations.length);
-        for (var i=0; i < 3; i++) { writeInt(fh, 0); } // Unused padding bytes
-        for (var i=0; i < _tileset_animations.length; i++) {
-            writeInt(fh, _tileset_animations[i].tileId);
-            writeInt(fh, _tileset_animations[i].firstFrame);
-            writeInt(fh, _tileset_animations[i].nextFrame);
+        for (var i=0; i < 3; i++) { writeInt(fh, 0); }
+        for (var i=1; i <= _tileset_animations.length; i++) {
+            animations.push([readInt(fh), readInt(fh), readInt(fh)]);
+        }
+    
+        GX.tilesetCreate("/_gxtmp/tileset.png", tsWidth, tsHeight, tiles, animations);
+        GX.mapCreate(columns, rows, layers);
+        if (isometric) {
+            GX.mapIsometric(true);
+        }
+        var li = 0
+        for (var l=0; l <= GX.mapLayers(); l++) {
+            if (l > 0) { li++; }
+            for (var row=0; row < GX.mapRows(); row++) {
+                for (var col=0; col < GX.mapColumns(); col++) {
+                    if (l > 0) {
+                        GX.mapTile(col, row, l, ldata[li]);
+                    }
+                    li++;
+                }
+            }
+        }
+        
+        function readInt(fh) {
+            var data = vfs.readData(fh.file, fh.pos, 2);
+            var value = (new DataView(data)).getInt16(0, true);
+            fh.pos += data.byteLength;
+            return value;
+        }
+        
+        function readLong(fh) {
+            var data = vfs.readData(fh.file, fh.pos, 4);
+            var value = (new DataView(data)).getInt32(0, true);
+            fh.pos += data.byteLength;
+            return value;
+        }
+        
+        function readString(fh) {
+            var slen = readLong(fh);
+            var data = vfs.readData(fh.file, fh.pos, slen)
+            var value = String.fromCharCode.apply(null, new Uint8Array(data))
+            fh.pos += data.byteLength;
+            return value;
+        }
+        _map_loading = false;
+    }
+    
+    async function _mapSave (filename) {
+        var vfs = GX.vfs();
+        var parentPath = vfs.getParentPath(filename);
+        filename = vfs.getFileName(filename);
+    
+        // create the parent path
+        var dirs = parentPath.split("/");
+        var parentDir = vfs.rootDirectory();
+        for (var i=0; i < dirs.length; i++) {
+            if (dirs[i] == "") { continue; }
+            var p = vfs.getNode(dirs[i], parentDir);
+            if (!p) { p = vfs.getNode(dirs[i], parentDir); }
+            parentDir = p;
+        }
+    
+        var tmpDir = vfs.getNode("_gxtmp", vfs.rootDirectory());
+        if (!tmpDir) { tmpDir = vfs.createDirectory("_gxtmp", vfs.rootDirectory()); }
+    
+        var file = vfs.createFile(filename, parentDir);
+        var fh = { file: file, pos: 0 };
+        
+        writeInt(fh, 2); // version
+        writeInt(fh, GX.mapColumns());
+        writeInt(fh, GX.mapRows());
+        writeInt(fh, GX.mapLayers());
+        writeInt(fh, GX.mapIsometric());
+        
+        var size = (GX.mapLayers() + 1) * GX.mapColumns() * GX.mapRows() + GX.mapLayers();
+        var ldata = new ArrayBuffer(size * 2 + 4);
+        var dview = new DataView(ldata);
+        var li = GX.mapColumns() * GX.mapRows() * 2 + 1;
+        for (var l=1; l <= GX.mapLayers(); l++) {
+            if (l > 1) { li+=2; }
+            for (var row=0; row < GX.mapRows(); row++) {
+                for (var col=0; col < GX.mapColumns(); col++) {
+                    if (l == 0) { 
+                        dview.setInt16(li+1, 0, true);
+                    }
+                    else {
+                        dview.setInt16(li+1, GX.mapTile(col, row, l), true);
+                    }
+                    li+=2;
+                }
+            }
+        }
+
+        var cdata = pako.deflate(ldata); // Assuming pako is defined elsewhere or will be provided
+        writeLong(fh, cdata.byteLength);
+        vfs.writeData(fh.file, cdata, fh.pos);
+        fh.pos += cdata.byteLength;
+
+        // write the tileset data
+        writeInt(fh, 2); // version
+        writeString(fh, "tileset.gxi");
+        writeInt(fh, GX.tilesetWidth());
+        writeInt(fh, GX.tilesetHeight());
+        
+        // write the tileset png data
+        var tsfile = vfs.getNode(_tileset.filename);
+        writeLong(fh, tsfile.data.byteLength);
+        vfs.writeData(fh.file, tsfile.data, fh.pos);
+        fh.pos += tsfile.data.byteLength;
+        fh.pos++;
+        
+        // write the tileset tiles data  
+        writeInt(fh, _tileset_tiles.length);
+        for (var i=0; i < 4; i++) { writeInt(fh, 0); }
+        for (var i=1; i <= _tileset_tiles.length; i++) {
+            writeInt(fh, 0);
+            writeInt(fh, _tileset_tiles[i].animationId);
+            writeInt(fh, _tileset_tiles[i].animationSpeed);
+            writeInt(fh, _tileset_tiles[i].animationFrame);
+        }
+
+        // write the tileset animations data
+        writeInt(fh, _tileset_animations.length);
+        for (var i=0; i < 3; i++) { writeInt(fh, 0); }
+        for (var i=1; i <= _tileset_animations.length; i++) {
+            animations.push([readInt(fh), readInt(fh), readInt(fh)]);
+        }
+    
+        GX.tilesetCreate("/_gxtmp/tileset.png", tsWidth, tsHeight, tiles, animations);
+        GX.mapCreate(columns, rows, layers);
+        if (isometric) {
+            GX.mapIsometric(true);
+        }
+        var li = 0
+        for (var l=0; l <= GX.mapLayers(); l++) {
+            if (l > 0) { li++; }
+            for (var row=0; row < GX.mapRows(); row++) {
+                for (var col=0; col < GX.mapColumns(); col++) {
+                    if (l > 0) {
+                        GX.mapTile(col, row, l, ldata[li]);
+                    }
+                    li++;
+                }
+            }
         }
         
         function writeInt(fh, value) {
@@ -1351,15 +1386,8 @@ var GX = new function() {
     }
 
     function _mapLayerInit(cols, rows) {
-        // Use provided cols/rows or fallback to _map properties
-        cols = cols !== undefined ? cols : _map.columns;
-        rows = rows !== undefined ? rows : _map.rows;
-
-        if (cols === undefined || rows === undefined || cols < 1 || rows < 1) {
-            console.error("Invalid columns or rows for _mapLayerInit:", cols, rows);
-            return []; // Return empty array to prevent further errors
-        }
-
+        if (cols == undefined) { cols = _map.columns; }
+        if (rows == undefined) { rows = _map.rows; }
         var layerSize = rows * cols;
         var layerData = [];
         for (var i=0; i < layerSize; i++) {
@@ -1368,12 +1396,11 @@ var GX = new function() {
         return layerData;
     }
 
-    function _mapColumns() { return _map.columns || 0; } // Default to 0 if undefined
-    function _mapRows() { return _map.rows || 0; }
-    function _mapLayers() { return _map.layers || 0; }
+    function _mapColumns() { return _map.columns; }
+    function _mapRows() { return _map.rows; }
+    function _mapLayers() { return _map.layers; }
 
     function _mapLayerVisible(layer, visible) {
-        if (layer < 1 || layer > _map_layer_info.length) return 0; // Check bounds
         if (visible != undefined) {
             _map_layer_info[layer-1].hidden = !visible;
         }
@@ -1389,7 +1416,7 @@ var GX = new function() {
     }
 
     function _mapLayerAdd() {
-        _map.layers = (_map.layers || 0) + 1; // Ensure _map.layers is initialized
+        _map.layers++;
         _map_layer_info.push({
             id: _map.layers,
             hidden: false
@@ -1402,41 +1429,53 @@ var GX = new function() {
 
         GX.mapLayerAdd();
         for (var layer = GX.mapLayers(); layer > beforeLayer; layer--) {
-            // Ensure source layer exists before copying
-            if (_map_layers[layer - 2]) {
-                _map_layers[layer-1] = structuredClone(_map_layers[layer - 2]); // Use structuredClone for deep copy
-            } else {
-                _map_layers[layer-1] = _mapLayerInit(); // Initialize if source is missing
+            for (var tile = 0; tile <= GX.mapRows() * GX.mapColumns(); tile++) {
+                _map_layers[layer-1][tile] = _map_layers[layer - 2][tile];
             }
         }
         _map_layers[beforeLayer-1] = _mapLayerInit();
     }
 
     function _mapLayerRemove (removeLayer) {
-        if (removeLayer < 1 || removeLayer > GX.mapLayers() || GX.mapLayers() < 2) { return; } // Use GX.mapLayers()
+        if (removeLayer < 1 || removeLayer > GX.mapLayers() || GX.mapLayers < 2) { return; }
 
-        _map_layer_info.splice(removeLayer - 1, 1); // Remove from info array
-        _map_layers.splice(removeLayer - 1, 1); // Remove from data array
-        _map.layers = GX.mapLayers() - 1; // Update count
-        // Re-index layer IDs after removal
-        for (let i = 0; i < _map_layer_info.length; i++) {
-            _map_layer_info[i].id = i + 1;
+        for (var layer = removeLayer; layer < GX.mapLayers(); layer++) {
+            for (var tile = 0; tile <= GX.mapRows() * GX.mapColumns(); tile++) {
+                _map_layers[layer-1][tile] = _map_layers[layer][tile];
+            }
         }
+        _map_layer_info.pop();
+        _map_layers.pop();
+        _map.layers = GX.mapLayers() - 1;
     }
 
     function _mapResize (columns, rows) {
         var tempMap = structuredClone(_map_layers);
         _map_layers = new Array(GX.mapLayers());
 
-        var maxColumns = Math.min(columns, GX.mapColumns());
-        var maxRows = Math.min(rows, GX.mapRows());
+        var maxColumns = 0;
+        var maxRows = 0;
+        if (columns > GX.mapColumns()) {
+            maxColumns = GX.mapColumns();
+        }
+        else {
+            maxColumns = columns;
+        }
+        if (rows > GX.mapRows) {
+            maxRows = GX.mapRows();
+        }
+        else {
+            maxRows = rows;
+        }
 
         for (var layer = 1; layer <= GX.mapLayers(); layer++) {
             _map_layers[layer-1] = _mapLayerInit(columns, rows);
             for (var row = 0; row < maxRows; row++) {
                 for (var column = 0; column < maxColumns; column++) {
-                    // Check if tempMap[layer-1] and its elements exist
-                    if (tempMap[layer-1] && tempMap[layer-1][row * GX.mapColumns() + column]) {
+                    if (column >= GX.mapColumns() || row >= GX.mapRows()) {
+                        _map_layers[layer-1][row * columns + column].tile = 0;
+                    }
+                    else {
                         _map_layers[layer-1][row * columns + column].tile = tempMap[layer-1][row * GX.mapColumns() + column].tile;
                     }
                 }
@@ -1445,11 +1484,10 @@ var GX = new function() {
 
         _map.columns = columns;
         _map.rows = rows;
-        _updateSceneSize(); // Update scene columns/rows based on new map size
     }
 
     function _mapDraw() {
-        if (_mapRows() < 1 || _mapColumns() < 1) { return; } // Check for valid map dimensions
+        if (_mapRows() < 1) { return; }
 
         var tpos = {};
         var srow, scol, row, col;
@@ -1470,13 +1508,12 @@ var GX = new function() {
         }
 
         for (var li = 1; li <= GX.mapLayers(); li++) {
-            if (_map_layer_info[li-1] && !_map_layer_info[li-1].hidden) { // Check if layer info exists
+            if (!_map_layer_info[li-1].hidden) {
                 layer = _map_layer_info[li-1].id;
 
                 srow = 0;
                 rowOffset = 0;
 
-                // Iterate over visible rows and columns, adding +1 for partial tiles at edges
                 for (row = prow; row <= prow + GX.sceneRows() + 1; row++) {
                     scol = 0;
                     if (!GX.mapIsometric()) {
@@ -1493,7 +1530,7 @@ var GX = new function() {
                     for (col = pcol; col <= pcol + GX.sceneColumns() + 1; col++) {
                         t = GX.mapTile(col, row, layer);
                         if (t > 0) {
-                            // var t1 = t; // t1 is unused
+                            var t1 = t;
                             t = _tileFrame(t);
                             GX.tilesetPos(t, tpos);
                             tx = Math.floor(scol * GX.tilesetWidth() - xoffset - colOffset);
@@ -1508,58 +1545,43 @@ var GX = new function() {
             _drawEntityLayer(li);
         }
 
-        // Animate tileset tiles
         for (t = 1; t <= GX.tilesetColumns() * GX.tilesetRows(); t++) {
             _tileFrameNext(t);
         }
     }
 
     function _mapTilePosAt (x, y, tpos) {
-        if (!tpos) { tpos = {x:0, y:0}; } // Ensure tpos is an object
         if (!GX.mapIsometric()) {
             tpos.x = Math.floor((x + GX.sceneX()) / GX.tilesetWidth());
             tpos.y = Math.floor((y + GX.sceneY()) / GX.tilesetHeight());
         } else {
             var tileWidthHalf = GX.tilesetWidth() / 2;
             var tileHeightHalf = GX.tilesetHeight() / 2;
-            // Prevent division by zero if tileHeightHalf is 0
-            if (tileHeightHalf === 0) {
-                tpos.y = 0;
-            } else {
-                tpos.y = (2 * y) / tileHeightHalf;
-            }
-            
             var sx = x / tileWidthHalf;
 
             var offset = 0;
             if (sx % 2 == 1) {
                 offset = tileWidthHalf;
             }
-            // Prevent division by zero if GX.tilesetWidth() is 0
-            if (GX.tilesetWidth() === 0) {
-                tpos.x = 0;
-            } else {
-                tpos.x = (x - offset) / GX.tilesetWidth();
-            }
+
+            tpos.y = (2 * y) / tileHeightHalf;
+            tpos.x = (x - offset) / GX.tilesetWidth();
         }
-        return tpos; // Return tpos for convenience
     }
 
     function _mapTile (col, row, layer, tile) {
-        if (col < 0 || col >= GX.mapColumns() || row < 0 || row >= GX.mapRows() || layer < 1 || layer > GX.mapLayers()) { return 0; } // Added layer < 1 check
+        if (col < 0 || col >= GX.mapColumns() || row < 0 || row >= GX.mapRows() || layer > GX.mapLayers()) { return 0; }
         var mpos = row * GX.mapColumns() + col;
-        if (tile !== undefined) { // Use !== undefined to allow setting tile 0
-            if (_map_layers[layer-1] && _map_layers[layer-1][mpos]) { // Check if layer and tile position exist
+        if (tile >= 0) {
+            if (col >= 0 && col <= GX.mapColumns() && row >= 0 && row < GX.mapRows()) {
                 _map_layers[layer-1][mpos].tile = tile;
-            } else {
-                console.warn(`_mapTile: Attempted to set tile at invalid position (col=${col}, row=${row}, layer=${layer})`);
             }
         }
-        return _map_layers[layer-1] && _map_layers[layer-1][mpos] ? _map_layers[layer-1][mpos].tile : 0; // Return 0 if not found
+        return _map_layers[layer-1][mpos].tile;
     }
 
     function _mapVersion() {
-        return _map.version || 0; // Default to 0 if undefined
+        return _map.version
     }
 
     // Tileset Methods
@@ -1579,9 +1601,7 @@ var GX = new function() {
             }
         }
         else {
-            // Ensure tilesetColumns and tilesetRows are valid before loop
-            const numTiles = (GX.tilesetColumns() || 0) * (GX.tilesetRows() || 0);
-            for (var i=0; i < numTiles; i++) {
+            for (var i=0; i < GX.tilesetColumns() * GX.tilesetRows(); i++) {
                 _tileset_tiles.push({
                     id: i+1,
                     animationId: 0,
@@ -1610,9 +1630,8 @@ var GX = new function() {
         _tileset.height = tileheight;
         var imgLoaded = false;
         _tileset.image = _imageLoad(tilesetFilename, function(img) {
-            // Ensure img.width and img.height are valid before division
-            _tileset.columns = (img.width && GX.tilesetWidth() > 0) ? img.width / GX.tilesetWidth() : 0;
-            _tileset.rows = (img.height && GX.tilesetHeight() > 0) ? img.height / GX.tilesetHeight() : 0;
+            _tileset.columns = img.width / GX.tilesetWidth();
+            _tileset.rows = img.height / GX.tilesetHeight();
             _updateSceneSize();
             imgLoaded = true;
         });
@@ -1624,7 +1643,6 @@ var GX = new function() {
     }
 
     function _tilesetPos (tilenum, p) {
-        if (!p) { p = {x:0, y:0}; } // Ensure p is an object
         if (GX.tilesetColumns() == 0) {
             p.x = 0;
             p.y = 0;
@@ -1633,18 +1651,16 @@ var GX = new function() {
             p.y = p.y + 1;
             p.x = (tilenum - 1) % GX.tilesetColumns() + 1;
         }
-        return p; // Return p for convenience
     }
 
-    function _tilesetWidth() { return _tileset.width || 0; }
-    function _tilesetHeight() { return _tileset.height || 0; }
-    function _tilesetColumns() { return _tileset.columns || 0; }
-    function _tilesetRows() { return _tileset.rows || 0; }
+    function _tilesetWidth() { return _tileset.width; }
+    function _tilesetHeight() { return _tileset.height; }
+    function _tilesetColumns() { return _tileset.columns; }
+    function _tilesetRows() { return _tileset.rows; }
     function _tilesetFilename() { return _tileset.filename; }
     function _tilesetImage() { return _tileset.image; }
 
     function _tilesetAnimationCreate (tileId, animationSpeed) {
-        if (tileId < 1 || tileId > _tileset_tiles.length) { return; } // Check bounds
         var frameId = _tileset_animations.length;
         _tileset_animations[frameId] = { tileId: 0, firstFrame: 0, nextFrame: 0 };
         _tileset_animations[frameId].tileId = tileId;
@@ -1654,16 +1670,10 @@ var GX = new function() {
     }
 
     function _tilesetAnimationAdd (firstTileId, addTileId) {
-        if (firstTileId < 1 || firstTileId > _tileset_tiles.length) { return; } // Check bounds
         var firstFrame = _tileset_tiles[firstTileId-1].animationId;
-        if (firstFrame === 0) { // If first tile has no animation, create one
-            _tilesetAnimationCreate(firstTileId, 1); // Default speed 1
-            firstFrame = _tileset_tiles[firstTileId-1].animationId;
-        }
 
         var lastFrame  = firstFrame;
-        // Ensure _tileset_animations[lastFrame-1] exists before accessing nextFrame
-        while (_tileset_animations[lastFrame-1] && _tileset_animations[lastFrame-1].nextFrame > 0) {
+        while (_tileset_animations[lastFrame-1].nextFrame > 0) {
             lastFrame = _tileset_animations[lastFrame-1].nextFrame;
         }
 
@@ -1671,39 +1681,30 @@ var GX = new function() {
         _tileset_animations[frameId] = { tileId: 0, firstFrame: 0, nextFrame: 0 };
         _tileset_animations[frameId].tileId = addTileId;
         _tileset_animations[frameId].firstFrame = firstFrame;
-        if (_tileset_animations[lastFrame-1]) { // Ensure lastFrame-1 exists
-            _tileset_animations[lastFrame-1].nextFrame = frameId + 1;
-        }
+        _tileset_animations[lastFrame-1].nextFrame = frameId + 1;
     }
 
     function _tilesetAnimationRemove (firstTileId) {
-        if (firstTileId < 1 || firstTileId > _tileset_tiles.length) { return; } // Check bounds
         _tileset_tiles[firstTileId-1].animationId = 0;
-        // Note: This doesn't clean up _tileset_animations array, just breaks the chain.
-        // A more robust implementation might re-index or remove unused animation frames.
     }
 
     function _tilesetAnimationFrames (tileId, tileFrames /* QB Array */) {
-        if (tileId < 0 || tileId > GX.tilesetRows() * GX.tilesetColumns() || tileId > _tileset_tiles.length) { return 0; } // Check bounds
+        if (tileId < 0 || tileId > GX.tilesetRows() * GX.tilesetColumns()) { return 0; }
 
         GX.resizeArray(tileFrames, [{l:0,u:0}], 0);
         var frameCount = 0;
         var frame = _tileset_tiles[tileId-1].animationId;
-        while (frame > 0 && _tileset_animations[frame-1]) { // Check if animation frame exists
+        while (frame > 0) {
             frameCount = frameCount + 1
             GX.resizeArray(tileFrames, [{l:0,u:frameCount}], 0, true);
             GX.arrayValue(tileFrames, [frameCount]).value = _tileset_animations[frame-1].tileId;
             frame = _tileset_animations[frame-1].nextFrame;
-            if (frameCount > 1000) { // Prevent infinite loop for malformed animations
-                console.warn("Tileset animation loop detected or too long for tileId:", tileId);
-                break;
-            }
         }
         return frameCount;
     }
 
     function _tilesetAnimationSpeed (tileId, speed) {
-        if (tileId < 1 || tileId > _tileset_tiles.length) { return 0; } // Check bounds
+        if (tileId > GX.tilesetRows() * GX.tilesetColumns()) { return; }
         if (speed != undefined) {
             _tileset_tiles[tileId-1].animationSpeed = speed;
         }
@@ -1711,27 +1712,24 @@ var GX = new function() {
     }
 
     function _tileFrame (tileId) {
-        if (tileId < 0 || tileId > _tileset_tiles.length || !_tileset_tiles[tileId-1]) { return tileId; } // Check bounds and existence
+        if (tileId < 0 || tileId > _tileset_tiles.length) { return tileId; }
         if (_tileset_tiles[tileId-1].animationId == 0) { return tileId; }
 
         var currFrame = _tileset_tiles[tileId-1].animationId;
         if (_tileset_tiles[tileId-1].animationFrame > 0) {
             currFrame = _tileset_tiles[tileId-1].animationFrame;
         }
-        
-        // Ensure _tileset_animations[currFrame-1] exists
-        return _tileset_animations[currFrame-1] ? _tileset_animations[currFrame-1].tileId : tileId;
+
+        return _tileset_animations[currFrame-1].tileId;
     }
 
     function _tileFrameNext (tileId) {
-        if (tileId < 0 || tileId > _tileset_tiles.length || !_tileset_tiles[tileId-1]) { return; } // Check bounds and existence
+        if (tileId < 0 || tileId > _tileset_tiles.length) { return; }
         if (_tileset_tiles[tileId-1].animationId == 0) { return; }
 
         var frame = GX.frame() % GX.frameRate() + 1;
         var firstFrame = _tileset_tiles[tileId-1].animationId;
         var animationSpeed = _tileset_tiles[tileId-1].animationSpeed;
-
-        if (animationSpeed <= 0) animationSpeed = 1; // Prevent division by zero or negative speed
 
         if (frame % Math.round(GX.frameRate() / animationSpeed) == 0) {
             var currFrame = firstFrame;
@@ -1739,8 +1737,7 @@ var GX = new function() {
                 currFrame = _tileset_tiles[tileId-1].animationFrame;
             }
 
-            // Ensure _tileset_animations[currFrame-1] exists
-            var nextFrame = _tileset_animations[currFrame-1] ? _tileset_animations[currFrame-1].nextFrame : 0;
+            var nextFrame = _tileset_animations[currFrame-1].nextFrame;
             if (nextFrame == 0) {
                 nextFrame = firstFrame;
             }
@@ -1751,9 +1748,6 @@ var GX = new function() {
 
     // Miscellaneous Private Methods
     function _entityCollide (eid1, eid2) {
-        // Ensure both entities exist before checking collision
-        if (!_entities[eid1-1] || !_entities[eid2-1]) return 0;
-
         return _rectCollide(
             GX.entityX(eid1), GX.entityY(eid1), GX.entityWidth(eid1), GX.entityHeight(eid1),
             GX.entityX(eid2), GX.entityY(eid2), GX.entityWidth(eid2), GX.entityHeight(eid2));
@@ -1780,10 +1774,9 @@ var GX = new function() {
 
     async function _sceneMoveEntities() {
         var frameFactor = 1 / GX.frameRate();
-        if (frameFactor === Infinity || isNaN(frameFactor)) frameFactor = 0; // Prevent division by zero if framerate is 0
 
         for (var eid = 1; eid <= _entities.length; eid++) {
-            if (_entities[eid-1] && !_entities[eid-1].screen) { // Check if entity exists
+            if (!_entities[eid-1].screen) {
                 await _sceneMoveEntity(eid);
 
                 if (GX.entityVX(eid)) {
@@ -1797,8 +1790,6 @@ var GX = new function() {
     }
 
     async function _sceneMoveEntity(eid) {
-        if (!_entities[eid-1]) return; // Ensure entity exists
-
         var tpos = {};
         var centity = { id: 0 };
         var tmove = 0;
@@ -1817,9 +1808,9 @@ var GX = new function() {
                     GX.entityVY(eid, 0);
                 }
 
-                if (centity.id > 0 && _entities[centity.id-1]) { // Check if centity exists
+                if (centity.id > 0) {
                     GX.entityPos(eid, GX.entityX(eid), GX.entityY(centity.id) - GX.entityCollisionOffsetBottom(centity.id) + GX.entityHeight(centity.id) - GX.entityCollisionOffsetTop(eid));
-                } else if (tpos.y > -1) { // Only apply if tpos.y is valid
+                } else {
                     GX.entityPos(eid, GX.entityX(eid), (tpos.y + 1) * GX.tilesetHeight() - GX.entityCollisionOffsetTop(eid));
                 }
             }
@@ -1834,10 +1825,10 @@ var GX = new function() {
                 if (tmove == 0) {
                     GX.entityVY(eid, 0);
 
-                    if (centity.id > 0 && _entities[centity.id-1]) { // Check if centity exists
+                    if (centity.id > 0) {
                         GX.entityPos(eid, GX.entityX(eid), GX.entityY(centity.id) + GX.entityCollisionOffsetTop(centity.id) - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
                     }
-                    if (tpos.y > -1) { // Only apply if tpos.y is valid
+                    if (tpos.y > -1) {
                         GX.entityPos(eid, GX.entityX(eid), tpos.y * GX.tilesetHeight() - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
                     }
                 }
@@ -1860,10 +1851,10 @@ var GX = new function() {
                 if (GX.entityVY(eid) != 0) {
                     GX.entityVY(eid, 0);
 
-                    if (centity.id > 0 && _entities[centity.id-1]) { // Check if centity exists
+                    if (centity.id > 0) {
                         GX.entityPos(eid, GX.entityX(eid), GX.entityY(centity.id) + GX.entityCollisionOffsetTop(centity.id) - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
                     }
-                    else if (tpos.y > -1) { // Only apply if tpos.y is valid
+                    else {
                         GX.entityPos(eid, GX.entityX(eid), tpos.y * GX.tilesetHeight() - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
                     }
                 }
@@ -1878,10 +1869,10 @@ var GX = new function() {
             if (tmove == 0) {
                 GX.entityVX(eid, 0);
 
-                if (centity.id > 0 && _entities[centity.id-1]) { // Check if centity exists
+                if (centity.id > 0) {
                     GX.entityPos(eid, GX.entityX(centity.id) + GX.entityCollisionOffsetLeft(centity.id) - GX.entityWidth(eid) + GX.entityCollisionOffsetRight(eid), GX.entityY(eid));
                 }
-                if (tpos.x > -1) { // Only apply if tpos.x is valid
+                if (tpos.x > -1) {
                     GX.entityPos(eid, tpos.x * GX.tilesetWidth() - GX.entityWidth(eid) + GX.entityCollisionOffsetRight(eid), GX.entityY(eid));
                 }
             }
@@ -1894,10 +1885,10 @@ var GX = new function() {
             if (tmove == 0) {
                 GX.entityVX(eid, 0);
 
-                if (centity.id > 0 && _entities[centity.id-1]) { // Check if centity exists
+                if (centity.id > 0) {
                     GX.entityPos(eid, GX.entityX(centity.id) + GX.entityWidth(centity.id) - GX.entityCollisionOffsetRight(centity.id) - GX.entityCollisionOffsetLeft(eid), GX.entityY(eid));
                 }
-                if (tpos.x > -1) { // Only apply if tpos.x is valid
+                if (tpos.x > -1) {
                     GX.entityPos(eid, (tpos.x + 1) * GX.tilesetWidth() - GX.entityCollisionOffsetLeft(eid), GX.entityY(eid));
                 }
             }
@@ -1905,19 +1896,17 @@ var GX = new function() {
     }
 
     async function _entityTestMove (entity, mx, my, tpos, collisionEntity) {
-        if (!_entities[entity-1]) return 1; // If entity doesn't exist, allow movement
-
         tpos.x = -1;
         tpos.y = -1;
 
-        // var tcount = 0; // tcount is unused
+        var tcount = 0;
         var tiles = [];
-        _entityCollisionTiles(entity, mx, my, tiles); // Removed tcount as it's unused
+        _entityCollisionTiles(entity, mx, my, tiles, tcount);
 
         var move = 1;
 
         // Test for tile collision
-        // var tile = 0; // tile is unused
+        var tile = 0;
         for (var i = 0; i < tiles.length; i++) {
             var e = {};
             e.entity = entity;
@@ -1958,9 +1947,6 @@ var GX = new function() {
     }
 
     function _entityCollide (eid1, eid2) {
-        // Ensure both entities exist before checking collision
-        if (!_entities[eid1-1] || !_entities[eid2-1]) return 0;
-
         return _rectCollide( 
             GX.entityX(eid1) + GX.entityCollisionOffsetLeft(eid1), 
             GX.entityY(eid1) + GX.entityCollisionOffsetTop(eid1), 
@@ -1969,15 +1955,14 @@ var GX = new function() {
             GX.entityX(eid2) + GX.entityCollisionOffsetLeft(eid2),
             GX.entityY(eid2) + GX.entityCollisionOffsetTop(eid2),
             GX.entityWidth(eid2) - GX.entityCollisionOffsetLeft(eid2) - GX.entityCollisionOffsetRight(eid2) - 1,
-            GX.entityHeight(eid2) - GX.entityCollisionOffsetTop(eid2) - GX.entityCollisionOffsetBottom(eid2)-1);
+            GX.entityHeight(eid2) - GX.entityCollisionOffsetTop(eid2) - GX.entityCollisionOffsetBottom(eid2) - 1);
     }
 
     function _entityCollision(eid, movex, movey, entities) {
         var ecount = 0;
-        if (!_entities[eid-1]) return 0; // Ensure the primary entity exists
 
         for (var i = 1; i <= _entities.length; i++) {
-            if (i != eid && _entities[i-1]) { // Check if the other entity exists
+            if (i != eid) {
                 if (_rectCollide(GX.entityX(eid) + GX.entityCollisionOffsetLeft(eid) + movex, 
                     GX.entityY(eid) + GX.entityCollisionOffsetTop(eid) + movey, 
                     GX.entityWidth(eid) - GX.entityCollisionOffsetLeft(eid) - GX.entityCollisionOffsetRight(eid) - 1,
@@ -1994,7 +1979,7 @@ var GX = new function() {
         return ecount;
     }
 
-    function _entityCollisionTiles(entity, movex, movey, tiles) { // Removed unused tcount parameter
+    function _entityCollisionTiles(entity, movex, movey, tiles, tcount) {
         var tx = 0;
         var ty = 0;
         var tx0 = 0;
@@ -2003,9 +1988,7 @@ var GX = new function() {
         var tyn = 0;
         var x = 0;
         var y = 0;
-        // var i = 0; // i is unused
-
-        if (!_entities[entity-1]) return; // Ensure entity exists
+        var i = 0;
 
         if (movex != 0) {
             var startx = Math.round(-1 + GX.entityCollisionOffsetLeft(entity));
@@ -2014,14 +1997,13 @@ var GX = new function() {
             }
             tx = Math.floor((GX.entityX(entity) + startx) / GX.tilesetWidth())
 
-            // tcount = 0; // tcount is unused
+            tcount = 0;
             ty0 = 0;
-            var current_tcount = 0; // Use a local variable for counting unique ty values
             for (y = GX.entityY(entity) + GX.entityCollisionOffsetTop(entity); y <= GX.entityY(entity) + GX.entityHeight(entity) - 1 - GX.entityCollisionOffsetBottom(entity); y++) {
                 ty = Math.floor(y / GX.tilesetHeight());
-                if (current_tcount == 0) { ty0 = ty; }
+                if (tcount == 0) { ty0 = ty; }
                 if (ty != tyn) {
-                    current_tcount = current_tcount + 1;
+                    tcount = tcount + 1;
                 }
                 tyn = ty;
             }
@@ -2041,14 +2023,13 @@ var GX = new function() {
             }
             ty = Math.floor((GX.entityY(entity) + starty) / GX.tilesetHeight());
 
-            // tcount = 0; // tcount is unused
+            tcount = 0;
             tx0 = 0;
-            var current_tcount = 0; // Use a local variable for counting unique tx values
             for (x = GX.entityX(entity) + GX.entityCollisionOffsetLeft(entity); x <= GX.entityX(entity) + GX.entityWidth(entity) - 1 - GX.entityCollisionOffsetRight(entity); x++) {
                 tx = Math.floor(x / GX.tilesetWidth());
-                if (current_tcount == 0) { tx0 = tx; }
+                if (tcount == 0) { tx0 = tx; }
                 if (tx != txn) {
-                    current_tcount = current_tcount + 1;
+                    tcount = tcount + 1;
                 }
                 txn = tx;
             }
@@ -2065,10 +2046,6 @@ var GX = new function() {
     function _fullScreen(fullscreenFlag, smooth) {
         if (fullscreenFlag != undefined) {
             if (fullscreenFlag) {
-                if (!_canvas) { // Ensure canvas exists
-                    console.warn("Cannot go fullscreen: canvas element not found.");
-                    return _qbBoolean(_fullscreenFlag);
-                }
                 if (!smooth) {
                     _canvas.style.imageRendering = "pixelated";
                 }
@@ -2109,17 +2086,14 @@ var GX = new function() {
     }
 
     function _fontWidth (fid) {
-        if (!_fonts[fid-1]) return 0; // Check font existence
         return GX.entityWidth(_fonts[fid-1].eid);
     }
 
     function _fontHeight (fid) {
-        if (!_fonts[fid-1]) return 0; // Check font existence
         return GX.entityHeight(_fonts[fid-1].eid);
     }
 
     function _fontCharSpacing (fid, charSpacing) {
-        if (!_fonts[fid-1]) return 0; // Check font existence
         if (charSpacing != undefined) {
             _fonts[fid-1].charSpacing = charSpacing;
         }
@@ -2127,7 +2101,6 @@ var GX = new function() {
     }
 
     function _fontLineSpacing (fid, lineSpacing) {
-        if (!_fonts[fid-1]) return 0; // Check font existence
         if (lineSpacing != undefined) {
             _fonts[fid-1].lineSpacing = lineSpacing;
         }
@@ -2135,13 +2108,11 @@ var GX = new function() {
     }
 
     function _drawText (fid, sx, sy, s) {
-        if (s == undefined || !_fonts[fid-1]) { return; } // Check font existence
+        if (s == undefined) { return; }
         var x = sx;
         var y = sy;
         var font = _fonts[fid-1];
         var e = _entities[font.eid-1];
-
-        if (!e) return; // Ensure entity for font exists
 
         for (var i = 0; i < s.length; i++) {
             var a = s.charCodeAt(i);
@@ -2150,8 +2121,7 @@ var GX = new function() {
                 y = y + e.height + font.lineSpacing;
             } else if (a != 13) { // Ignore Carriage Return
                 if (a != 32) { // Space character, nothing to draw
-                    // Ensure _font_charmap[fid-1] and its character mapping exist
-                    var cpos = _font_charmap[fid-1] && _font_charmap[fid-1][a] ? _font_charmap[fid-1][a] : {x:0,y:0};
+                    var cpos = _font_charmap[fid-1][a];
                     GX.spriteDraw(e.image, x, y, cpos.y, cpos.x, e.width, e.height);
                 }
                 x = x + e.width + font.charSpacing;
@@ -2160,7 +2130,6 @@ var GX = new function() {
     }
 
     function _fontMapChars (fid, charref) {
-        if (!_fonts[fid-1]) return; // Check font existence
         var cx = 1;
         var cy = 1;
         for (var i = 0; i < charref.length; i++) {
@@ -2170,10 +2139,6 @@ var GX = new function() {
                 cy = cy + 1;
             } else {
                 if (a >= 33 && a <= 256) {
-                    // Ensure _font_charmap[fid-1] is initialized
-                    if (!_font_charmap[fid-1]) {
-                        _font_charmap[fid-1] = new Array(256).fill({x:0,y:0});
-                    }
                     _font_charmap[fid-1][a] = {x: cx, y: cy};
                 }
                 cx = cx + 1;
@@ -2182,11 +2147,6 @@ var GX = new function() {
     }
 
     function _fontCreateDefault (fid) {
-        if (!_fonts[fid-1]) { // Ensure font slot exists
-            _fonts[fid-1] = { eid:0, charSpacing:0, lineSpacing: 0};
-            _font_charmap[fid-1] = new Array(256).fill({x:0,y:0});
-        }
-
         var filename = null;
         if (fid == GX.FONT_DEFAULT_BLACK) {
             filename = "gx/__gx_font_default_black.png";
@@ -2216,7 +2176,6 @@ var GX = new function() {
     }
 
     function _mouseButton(button) {
-        if (button < 1 || button > _mouseButtons.length) return 0; // Check bounds
         return _mouseButtons[button-1];
     }
 
@@ -2245,7 +2204,6 @@ var GX = new function() {
     }
 
     function _deviceInputTest(di) {
-        if (!di) return _qbBoolean(false); // Ensure di exists
         if (di.deviceType == GX.DEVICE_KEYBOARD) {
             if (di.inputType == GX.DEVICE_BUTTON) {
                 return GX.keyDown(di.inputId);
@@ -2255,9 +2213,6 @@ var GX = new function() {
     }
 
     function _keyInput (k, di) {
-        if (!di) { // Initialize di if it's not passed or is undefined
-            di = {};
-        }
         di.deviceId = GX.DEVICE_KEYBOARD;
         di.deviceType = GX.DEVICE_KEYBOARD;
         di.inputType = GX.DEVICE_BUTTON;
@@ -2308,7 +2263,7 @@ var GX = new function() {
             case GX.KEY_L: k = "L"; break;
             case GX.KEY_SEMICOLON: k = ";"; break;
             case GX.KEY_QUOTE: k = "'"; break;
-            case GX.KEY_BACKQUOTE: k = "`"; break;
+            case GX.KEY_BACKQUOTE: k = "``"; break;
             case GX.KEY_LSHIFT: k = "LShift"; break;
             case GX.KEY_BACKSLASH: k = "\\"; break;
             case GX.KEY_Z: k = "Z"; break;
@@ -2393,39 +2348,32 @@ var GX = new function() {
 
     function _debugTileBorderColor(c) {
         if (c != undefined) {
-            __debug.tileBorderColor = c; // Use __debug
+            _debug.tileBorderColor = c;
         }
-        return __debug.tileBorderColor;
+        return _debug.tileBorderColor;
     }
 
     function _debugEntityBorderColor(c) {
         if (c != undefined) {
-            __debug.entityBorderColor = c; // Use __debug
+            _debug.entityBorderColor = c;
         }
-        return __debug.entityBorderColor;
+        return _debug.entityBorderColor;
     }
 
     function _debugEntityCollisionColor(c) {
         if (c != undefined) {
-            __debug.entityCollisionColor = c; // Use __debug
+            _debug.entityCollisionColor = c;
         }
-        return __debug.entityCollisionColor;
+        return _debug.entityCollisionColor;
     }
 
     function _debugFrameRate() {
         var frame = String(GX.frame());
         var frameRate = String(GX.frameRate());
-        // Pad frameRate with spaces if it's shorter than frame for alignment
         frameRate = frameRate.padStart(frame.length - frameRate.length, " ");
 
-        // Ensure GX.debugFont() returns a valid font ID
-        const debugFontId = GX.debugFont();
-        if (debugFontId > 0 && _fonts[debugFontId - 1]) {
-            GX.drawText(debugFontId, GX.sceneWidth() - (frame.length + 6) * 6 - 1, 1, "FRAME:" + frame);
-            GX.drawText(debugFontId, GX.sceneWidth() - (frameRate.length + 4) * 6 - 1, 9, "FPS:" + frameRate);
-        } else {
-            console.warn("Debug font not initialized or invalid.");
-        }
+        GX.drawText(GX.debugFont(), GX.sceneWidth() - (frame.length + 6) * 6 - 1, 1, "FRAME:" + frame);
+        GX.drawText(GX.debugFont(), GX.sceneWidth() - (frameRate.length + 4) * 6 - 1, 9, "FPS:" + frameRate);
     }
 
     function _sleep(ms) {
@@ -2442,6 +2390,12 @@ var GX = new function() {
             const activeElement = document.activeElement;
             const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
 
+            // Allow the hidden mobile input to handle its own keyup/keydown if it's focused
+            if (activeElement && activeElement.id === 'gx-hidden-input') {
+                // Do nothing, let the input event handle it
+                return;
+            }
+
             if (_scene.active && !isTypingIntoInput) {
                 event.preventDefault();
             }
@@ -2452,6 +2406,12 @@ var GX = new function() {
         addEventListener("keydown", function(event) { 
             const activeElement = document.activeElement;
             const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
+
+            // Allow the hidden mobile input to handle its own keyup/keydown if it's focused
+            if (activeElement && activeElement.id === 'gx-hidden-input') {
+                // Do nothing, let the input event handle it
+                return;
+            }
 
             if (_scene.active && !isTypingIntoInput) {
                 event.preventDefault();
@@ -2853,7 +2813,7 @@ var GX = new function() {
        if (!preserve) {
             var props = Object.getOwnPropertyNames(a);
             for (var i = 0; i < props.length; i++) {
-                if (props[i] != "_newObj" && typeof a[props[i]] !== 'function') { // Don't delete functions
+                if (props[i] != "_newObj") {
                     delete a[props[i]];
                 }
             }
@@ -2973,5 +2933,45 @@ var GXSTR = new function() {
         return String(str).replaceAll(findStr, replaceStr);
     }
 };
+
+// IMPORTANT: You need to ensure 'VFS' and 'pako' are defined before this script runs.
+// Example VFS (Virtual File System) and pako (compression library) definitions:
+// These are placeholders. Replace them with your actual VFS and Pako implementations.
+// If you don't use map loading/saving, you can provide minimal dummy implementations
+// to prevent errors, but the functionality won't exist.
+
+// Example VFS (Virtual File System) - You'll need a full implementation for this to work.
+// This is a placeholder to prevent 'VFS is not defined' errors if you don't have one.
+function VFS() {
+    this.rootDirectory = function() { return { name: '/', type: 'directory', children: [] }; };
+    this.getNode = function(path, cwd) {
+        // Minimal placeholder logic for map loading to avoid errors
+        if (path.includes("_gxtmp")) return { name: "_gxtmp", type: 'directory', children: [] };
+        if (path.includes("layer.dat")) return { name: "layer.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
+        if (path.includes("layer-i.dat")) return { name: "layer-i.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
+        if (path.includes("tileset.png")) return { name: "tileset.png", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
+        // For actual files, you'd need a proper VFS implementation
+        return null;
+    };
+    this.createDirectory = function(name, parent) { return { name: name, type: 'directory', children: [] }; };
+    this.createFile = function(name, parent) { return { name: name, type: 'file', data: new ArrayBuffer(0), byteLength: 0 }; };
+    this.writeData = function(file, data, offset = 0) { file.data = data; file.byteLength = data.byteLength; };
+    this.readText = function(file) { return new TextDecoder().decode(file.data); };
+    this.readData = function(file, offset, length) { return file.data.slice(offset, offset + length); };
+    this.textToData = function(text) { return new TextEncoder().encode(text).buffer; };
+    this.removeFile = function(file, parent) { };
+    this.getDataURL = async function(file) { return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; }; // Placeholder
+    this.getParentPath = function(filename) { return ''; };
+    this.getFileName = function(filename) { return filename; };
+    this.fullPath = function(file) { return file.name; };
+}
+
+// Example pako (compression library) - You'll need to include the actual pako library.
+// This is a placeholder to prevent 'pako is not defined' errors.
+const pako = {
+    inflate: function(data) { return data; }, // No actual inflation
+    deflate: function(data) { return data; }  // No actual deflation
+};
+
 
 GX.init();
