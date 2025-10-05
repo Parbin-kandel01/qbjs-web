@@ -500,6 +500,34 @@ var IDE = new function() {
 
         return false;
     }
+    // --- Mobile Input Hook for QB INPUT Command ---
+    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+        const _QB_input = QB.input;
+        if (typeof _QB_input === "function") {
+            QB.input = async function(promptText) {
+                // Optional: display prompt text if QB.print exists
+                if (promptText && typeof QB.print === "function") {
+                    QB.print(promptText);
+                }
+
+                // Focus hidden input to open mobile keyboard
+                const mobileInput = document.getElementById("mobile-console-input");
+                if (mobileInput) {
+                    mobileInput.style.opacity = "0.01";
+                    mobileInput.focus();
+                    setTimeout(() => {
+                        mobileInput.style.opacity = "0";
+                    }, 2000);
+                }
+
+                // Proceed with original QB.input behavior
+                return await _QB_input.apply(this, arguments);
+            };
+        }
+    }
+    // --- End Mobile Input Hook ---
+
+
 
     function _hasError() {
         var warnings = QBCompiler.getWarnings();
@@ -1697,4 +1725,5 @@ var IDE = new function() {
     this.changeKeyMap = _changeKeyMap;
     this.toggleConsolePersistence = _toggleConsolePersistence;
 };
+
 
