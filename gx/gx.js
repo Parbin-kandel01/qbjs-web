@@ -52,206 +52,6 @@ var GX = new function() {
         action: false
     };
     var _isMobileDevice = false; // Flag to detect mobile devices
-    
-    // Internal Helper Functions (ADDED FOR COMPLETENESS/FIXES)
-    function _sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    function _rectCollide(x1, y1, w1, h1, x2, y2, w2, h2) {
-        return x1 < x2 + w2 &&
-               x1 + w1 > x2 &&
-               y1 < y2 + h2 &&
-               y1 + h1 > y2;
-    }
-
-    // Placeholder for physics/movement logic (used in _sceneUpdate)
-    async function _sceneMoveEntities() {
-        var delta = 1 / GX.frameRate();
-        var gravity = GX.gravity();
-        var terminalVelocity = GX.terminalVelocity();
-
-        for (var i=1; i <= _entities.length; i++) {
-            var e = _entities[i-1];
-            
-            if (e.applyGravity) {
-                // Apply gravity
-                e.vy = e.vy + gravity * (GX.frame() - e.jumpstart) * delta;
-                if (e.vy > terminalVelocity) {
-                    e.vy = terminalVelocity;
-                }
-            }
-
-            // Apply velocity
-            e.x += e.vx * delta;
-            e.y += e.vy * delta;
-
-            // TODO: Add map/tile collision checks here
-        }
-    }
-
-    function _mapLayerInit() {
-        // Initializes a map layer array
-        if (!GX.mapRows() || !GX.mapColumns()) { return new Int16Array(0); }
-        return new Int16Array(GX.mapRows() * GX.mapColumns());
-    }
-
-    async function _getJSON(url) {
-        let res = await fetch(url);
-        if (!res.ok) { throw new Error(`HTTP error! status: ${res.status}`); }
-        return await res.json();
-    }
-    
-    function _fontCreateDefault(fontId) {
-        // Placeholder for default font creation, called in _reset
-    }
-    
-    function _debugFrameRate() {
-        // Placeholder for drawing FPS, called in _sceneDraw
-    }
-    
-    function _mapIsometric(value) {
-        if (value != undefined) { _map.isometric = value; }
-        return _map.isometric;
-    }
-
-    function _mapDraw() {
-        // Placeholder for map drawing
-    }
-
-    function _mapTile(col, row, layer, tileId) {
-        // Placeholder for map tile access
-        return 0;
-    }
-
-    function _mapTileId(col, row, layer) {
-        // Placeholder for map tile ID access
-        return 0;
-    }
-
-    function _mapTilePos(tileId) {
-        // Placeholder for map tile position access
-        return {x: 0, y: 0};
-    }
-
-    function _mapClear() {
-        _map.columns = 0;
-        _map.rows = 0;
-        _map.layers = 0;
-        _map_layers = [];
-        _map_layer_info = [];
-        _map.isometric = false;
-    }
-
-    function _tilesetCreate(filename, width, height, tiles, animations) {
-        _tileset.filename = filename;
-        _tileset.width = width;
-        _tileset.height = height;
-        _tileset_tiles = tiles;
-        _tileset_animations = animations;
-        _tileset.image = _imageLoad(filename);
-    }
-    
-    function _tilesetTileType(tileId) {
-        // Placeholder for tileset tile type access
-        return 0;
-    }
-    
-    function _tilesetTileId(col, row) {
-        // Placeholder for tileset tile ID access
-        return 0;
-    }
-
-    /* ---------- REPLACEMENT: improved _showInput / _hideInput  ---------- */
-    function _showInput(cx, cy) {
-        // cx, cy are optional coordinates (page coordinates relative to canvas) - used to position input
-        var hiddenInput = document.getElementById("gx-hidden-input");
-        if (!hiddenInput) {
-            hiddenInput = document.createElement('input');
-            hiddenInput.id = "gx-hidden-input";
-            hiddenInput.type = "text";
-            hiddenInput.autocapitalize = "off";
-            hiddenInput.autocomplete = "off";
-            hiddenInput.autocorrect = "off";
-            hiddenInput.spellcheck = false;
-            hiddenInput.setAttribute('inputmode','text'); // hints mobile keyboards
-            // style such that input is focusable and inside viewport but visually invisible
-            Object.assign(hiddenInput.style, {
-                position: 'absolute',
-                zIndex: 2147483647,
-                opacity: '0.01',    // NOT 0 — some browsers ignore fully-transparent elements
-                left: '0px',
-                top: '0px',
-                width: '1px',
-                height: '1px',
-                border: 'none',
-                padding: '0',
-                margin: '0',
-                background: 'transparent',
-                outline: 'none'
-            });
-            document.body.appendChild(hiddenInput);
-
-            // forward keydown / keyup to game events
-            hiddenInput.addEventListener('keydown', function(e) {
-                if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_DOWN, key: e.key });
-                // allow navigation keys etc to behave normally (don't prevent)
-            }, false);
-            hiddenInput.addEventListener('keyup', function(e) {
-                if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_UP, key: e.key });
-            }, false);
-
-            // input: commit typed characters (handles many simple cases)
-            hiddenInput.addEventListener('input', function(e) {
-                var v = e.target.value;
-                if (v && v.length > 0) {
-                    if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_TYPED, key: v });
-                    e.target.value = "";
-                }
-            });
-
-            // composition events: handle IME properly (CJK, Devanagari, etc.)
-            hiddenInput.addEventListener('compositionend', function(e) {
-                if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_TYPED, key: e.data });
-                hiddenInput.value = "";
-            });
-
-            // when keyboard is dismissed (blur) hide the input again
-            hiddenInput.addEventListener('blur', function(e) {
-                hiddenInput.style.display = 'none';
-                // optional notification: keyboard dismissed
-                if (_onGameEvent) { _onGameEvent({ event: 'GX_EVENT_KEYBOARD_DISMISSED' }); }
-            });
-        }
-
-        // make sure it's visible and placed inside viewport (use provided coords if any)
-        hiddenInput.style.display = 'block';
-        if (typeof cx === 'number' && typeof cy === 'number') {
-            // try to position input near touch (use small offset so it's inside viewport)
-            hiddenInput.style.left = Math.max(0, Math.floor(cx)) + 'px';
-            hiddenInput.style.top = Math.max(0, Math.floor(cy)) + 'px';
-        } else {
-            // default position (top-left)
-            hiddenInput.style.left = '4px';
-            hiddenInput.style.top = '4px';
-        }
-
-        // ensure the DOM has updated and then focus (setTimeout improves reliability on Android)
-        // try immediate focus first (should work in most modern browsers)
-        try { hiddenInput.focus(); } catch (ex) {}
-        // fallback: re-focus shortly after to cover browser timing quirks
-        setTimeout(function() {
-            try { hiddenInput.focus(); } catch (ex) {}
-        }, 50);
-    }
-
-    function _hideInput() {
-        var hiddenInput = document.getElementById("gx-hidden-input");
-        if (hiddenInput) {
-            try { hiddenInput.blur(); } catch (ex) {}
-            hiddenInput.style.display = 'none';
-        }
-    }
 
     async function _registerGameEvents(fnEventCallback) {
         _onGameEvent = fnEventCallback;
@@ -417,7 +217,7 @@ var GX = new function() {
                 // NOTE: if you want to show the keyboard on tap, call GX.showInput(_touchPos.x + rect.left, _touchPos.y + rect.top)
                 // from your game logic (or enable the code below to open input automatically on tap)
                 // Example auto-open (commented out to avoid always opening keyboard on every tap):
-                // setTimeout(function(){ GX.showInput(_touchPos.x + rect.y, _touchPos.y + rect.top); }, 0);
+                // setTimeout(function(){ GX.showInput(_touchPos.x + rect.left, _touchPos.y + rect.top); }, 0);
             });
 
             document.addEventListener("fullscreenchange", function(event) {
@@ -527,7 +327,6 @@ var GX = new function() {
     function _sceneHeight() { return _scene.height; }
     function _sceneColumns() { return _scene.columns; }
     function _sceneRows() { return _scene.rows; }
-    function _sceneActive() { return _scene.active; } // Added public method for scene active state
 
     // Draw the scene.
     function _sceneDraw() {
@@ -614,7 +413,7 @@ var GX = new function() {
                 if (sx < 0) { sx = 0; }
             }
 
-            sy = GX.sceneY();
+            sy = _scene.y;
             if (sy < 0) {
                 sy = 0;
             } else if (sy + GX.sceneHeight() > mheight) {
@@ -688,6 +487,17 @@ var GX = new function() {
     function _scenePos (x, y) {
         _scene.x = x;
         _scene.y = y;
+    }
+
+    function _updateSceneSize() {
+        if (GX.tilesetWidth() < 1 || GX.tilesetHeight() < 1) { return; }
+        if (GX.mapIsometric()) {
+            _scene.columns = Math.floor(GX.sceneWidth() / GX.tilesetWidth());
+            _scene.rows = Math.floor(GX.sceneHeight() / (GX.tilesetWidth() / 4));
+        } else {
+            _scene.columns = Math.floor(GX.sceneWidth() / GX.tilesetWidth());
+            _scene.rows = Math.floor(GX.sceneHeight() / GX.tilesetHeight());
+        }
     }
 
     // Event functions
@@ -792,7 +602,7 @@ var GX = new function() {
         return _bg.length;
     }
 
-    function _backgroundWrapFactor(bi, wrapFactor) { // Corrected function name
+    function _backgroundWrapFactor(bi, wrapFactor) {
         _bg[bi-1].wrapFactor = wrapFactor;
     }
 
@@ -1214,7 +1024,7 @@ var GX = new function() {
                 data = await _getJSON(filename);
             }
             var parentPath = filename.substring(0, filename.lastIndexOf("/")+1);
-            var imagePath = data.tileset.image.substring(data.tileset.image.lastIndexOf("/")+1); // <<< FIXED LINE
+            var imagePath = data.tileset.image.substring(data.tileset.image.lastIndexOf("/")+1);
             GX.tilesetCreate(parentPath + imagePath, data.tileset.width, data.tileset.height, data.tileset.tiles, data.tileset.animations);
             GX.mapCreate(data.columns, data.rows, data.layers.length);
             if (data.isometric) {
@@ -1230,47 +1040,62 @@ var GX = new function() {
             _map_loading = false;
         }
     }
-
+    
     async function _mapLoadV2(filename) {
         _map_loading = true;
         var vfs = GX.vfs();
-        var fh = { file: vfs.getNode(filename, vfs.rootDirectory()), pos: 0 };
+        var fh = { 
+            file: vfs.getNode(filename, vfs.rootDirectory()), 
+            pos: 0 
+        };
+    
         var tmpDir = vfs.getNode("_gxtmp", vfs.rootDirectory());
         if (!tmpDir) { tmpDir = vfs.createDirectory("_gxtmp", vfs.rootDirectory()); }
+        
         var version = readInt(fh);
         var columns = readInt(fh);
         var rows = readInt(fh);
         var layers = readInt(fh);
         var isometric = readInt(fh);
+        
         var slen = readLong(fh);
+        
         var data = vfs.readData(fh.file, fh.pos, slen)
         fh.pos += data.byteLength;
+        
         // write the raw data out and read it back in as a string
         var ldataFile = vfs.createFile("layer.dat", tmpDir);
         vfs.writeData(ldataFile, data);
         ldataFile = vfs.getNode("layer.dat", tmpDir);
         var ldstr = vfs.readText(ldataFile);
         vfs.removeFile(ldataFile, tmpDir);
+        
         // inflate the compressed data and write it to a temp file
         var ldata = pako.inflate(vfs.textToData(ldstr)); // Assuming pako is defined elsewhere or will be provided
         ldataFile = vfs.createFile("layer-i.dat", tmpDir);
         vfs.writeData(ldataFile, ldata);
+    
         // read the data
         ldataFile = vfs.getNode("layer-i.dat", tmpDir);
         ldata = vfs.readData(ldataFile, 0, ldataFile.data.byteLength)
         ldata = new Int16Array(ldata);
         vfs.removeFile(ldataFile, tmpDir);
+    
         // read the tileset data
         var tsVersion = readInt(fh);
         var tsFilename = readString(fh);
         var tsWidth = readInt(fh);
         var tsHeight = readInt(fh);
         var tsSize = readLong(fh);
+        
         data = vfs.readData(fh.file, fh.pos, tsSize);
         var pngFile = vfs.createFile("tileset.png", tmpDir)
         vfs.writeData(pngFile, data);
         fh.pos += data.byteLength;
-        fh.pos++; // read the tileset tiles data
+    
+        fh.pos++;
+        
+        // read the tileset tiles data
         var asize = readInt(fh);
         var tiles = [];
         for (var i=0; i < 4; i++) { readInt(fh); }
@@ -1278,6 +1103,7 @@ var GX = new function() {
             readInt(fh); // not using id currently
             tiles.push([readInt(fh), readInt(fh), readInt(fh)]);
         }
+    
         // read the tileset animations data
         asize = readInt(fh);
         var animations = [];
@@ -1285,31 +1111,39 @@ var GX = new function() {
         for (var i=1; i <= asize; i++) {
             animations.push([readInt(fh), readInt(fh), readInt(fh)]);
         }
+    
         GX.tilesetCreate("/_gxtmp/tileset.png", tsWidth, tsHeight, tiles, animations);
         GX.mapCreate(columns, rows, layers);
-        if (isometric) { GX.mapIsometric(true); }
+        if (isometric) {
+            GX.mapIsometric(true);
+        }
         var li = 0
         for (var l=0; l <= GX.mapLayers(); l++) {
             if (l > 0) { li++; }
             for (var row=0; row < GX.mapRows(); row++) {
                 for (var col=0; col < GX.mapColumns(); col++) {
-                    if (l > 0) { GX.mapTile(col, row, l, ldata[li]); }
+                    if (l > 0) {
+                        GX.mapTile(col, row, l, ldata[li]);
+                    }
                     li++;
                 }
             }
         }
+        
         function readInt(fh) {
             var data = vfs.readData(fh.file, fh.pos, 2);
             var value = (new DataView(data)).getInt16(0, true);
             fh.pos += data.byteLength;
             return value;
         }
+        
         function readLong(fh) {
             var data = vfs.readData(fh.file, fh.pos, 4);
             var value = (new DataView(data)).getInt32(0, true);
             fh.pos += data.byteLength;
             return value;
         }
+        
         function readString(fh) {
             var slen = readLong(fh);
             var data = vfs.readData(fh.file, fh.pos, slen)
@@ -1324,6 +1158,7 @@ var GX = new function() {
         var vfs = GX.vfs();
         var parentPath = vfs.getParentPath(filename);
         filename = vfs.getFileName(filename);
+    
         // create the parent path
         var dirs = parentPath.split("/");
         var parentDir = vfs.rootDirectory();
@@ -1333,15 +1168,19 @@ var GX = new function() {
             if (!p) { p = vfs.getNode(dirs[i], parentDir); }
             parentDir = p;
         }
+    
         var tmpDir = vfs.getNode("_gxtmp", vfs.rootDirectory());
         if (!tmpDir) { tmpDir = vfs.createDirectory("_gxtmp", vfs.rootDirectory()); }
+    
         var file = vfs.createFile(filename, parentDir);
         var fh = { file: file, pos: 0 };
+        
         writeInt(fh, 2); // version
         writeInt(fh, GX.mapColumns());
         writeInt(fh, GX.mapRows());
         writeInt(fh, GX.mapLayers());
         writeInt(fh, GX.mapIsometric());
+        
         var size = (GX.mapLayers() + 1) * GX.mapColumns() * GX.mapRows() + GX.mapLayers();
         var ldata = new ArrayBuffer(size * 2 + 4);
         var dview = new DataView(ldata);
@@ -1350,53 +1189,1193 @@ var GX = new function() {
             if (l > 1) { li+=2; }
             for (var row=0; row < GX.mapRows(); row++) {
                 for (var col=0; col < GX.mapColumns(); col++) {
-                    if (l == 0) { dview.setInt16(li+1, 0, true); }
-                    else { dview.setInt16(li+1, GX.mapTile(col, row, l), true); }
+                    if (l == 0) { 
+                        dview.setInt16(li+1, 0, true);
+                    }
+                    else {
+                        dview.setInt16(li+1, GX.mapTile(col, row, l), true);
+                    }
                     li+=2;
                 }
             }
         }
+
         var cdata = pako.deflate(ldata); // Assuming pako is defined elsewhere or will be provided
         writeLong(fh, cdata.byteLength);
         vfs.writeData(fh.file, cdata, fh.pos);
         fh.pos += cdata.byteLength;
+
         // write the tileset data
         writeInt(fh, 2); // version
         writeString(fh, "tileset.gxi");
         writeInt(fh, GX.tilesetWidth());
         writeInt(fh, GX.tilesetHeight());
+        
         // write the tileset png data
         var tsfile = vfs.getNode(_tileset.filename);
         writeLong(fh, tsfile.data.byteLength);
-        vfs.writeData(fh.file, tsfile.data, fh.pos); // <<< COMPLETED LINE
+        vfs.writeData(fh.file, tsfile.data, fh.pos);
         fh.pos += tsfile.data.byteLength;
+        fh.pos++;
+        
+        // write the tileset tiles data  
+        writeInt(fh, _tileset_tiles.length);
+        for (var i=0; i < 4; i++) { writeInt(fh, 0); }
+        for (var i=1; i <= _tileset_tiles.length; i++) {
+            writeInt(fh, 0);
+            writeInt(fh, _tileset_tiles[i].animationId);
+            writeInt(fh, _tileset_tiles[i].animationSpeed);
+            writeInt(fh, _tileset_tiles[i].animationFrame);
+        }
 
-        function writeInt(fh, value) {
-            var data = new ArrayBuffer(2);
-            (new DataView(data)).setInt16(0, value, true);
-            vfs.writeData(fh.file, data, fh.pos);
-            fh.pos += data.byteLength;
+        // write the tileset animations data
+        writeInt(fh, _tileset_animations.length);
+        for (var i=0; i < 3; i++) { writeInt(fh, 0); }
+        for (var i=1; i <= asize; i++) {
+            animations.push([readInt(fh), readInt(fh), readInt(fh)]);
         }
-        function writeLong(fh, value) {
-            var data = new ArrayBuffer(4);
-            (new DataView(data)).setInt32(0, value, true);
-            vfs.writeData(fh.file, data, fh.pos);
-            fh.pos += data.byteLength;
+    
+        GX.tilesetCreate("/_gxtmp/tileset.png", tsWidth, tsHeight, tiles, animations);
+        GX.mapCreate(columns, rows, layers);
+        if (isometric) {
+            GX.mapIsometric(true);
         }
-        function writeString(fh, str) {
-            writeLong(fh, str.length);
-            var data = new ArrayBuffer(str.length);
-            var arr = new Uint8Array(data);
-            for (var i=0; i < str.length; i++) {
-                arr[i] = str.charCodeAt(i);
+        var li = 0
+        for (var l=0; l <= GX.mapLayers(); l++) {
+            if (l > 0) { li++; }
+            for (var row=0; row < GX.mapRows(); row++) {
+                for (var col=0; col < GX.mapColumns(); col++) {
+                    if (l > 0) {
+                        GX.mapTile(col, row, l, ldata[li]);
+                    }
+                    li++;
+                }
             }
-            vfs.writeData(fh.file, data, fh.pos);
+        }
+        
+        function readInt(fh) {
+            var data = vfs.readData(fh.file, fh.pos, 2);
+            var value = (new DataView(data)).getInt16(0, true);
             fh.pos += data.byteLength;
+            return value;
+        }
+        
+        function readLong(fh) {
+            var data = vfs.readData(fh.file, fh.pos, 4);
+            var value = (new DataView(data)).getInt32(0, true);
+            fh.pos += data.byteLength;
+            return value;
+        }
+        
+        function readString(fh) {
+            var slen = readLong(fh);
+            var data = vfs.readData(fh.file, fh.pos, slen)
+            var value = String.fromCharCode.apply(null, new Uint8Array(data))
+            fh.pos += data.byteLength;
+            return value;
+        }
+        _map_loading = false;
+    }
+    
+    function _getJSON(url) {
+        return fetch(url)
+            .then((response)=>response.json())
+            .then((responseJson)=>{return responseJson});
+    }
+
+    function _mapLayerInit(cols, rows) {
+        if (cols == undefined) { cols = _map.columns; }
+        if (rows == undefined) { rows = _map.rows; }
+        var layerSize = rows * cols;
+        var layerData = [];
+        for (var i=0; i < layerSize; i++) {
+            layerData.push({ tile: 0});
+        }
+        return layerData;
+    }
+
+    function _mapColumns() { return _map.columns; }
+    function _mapRows() { return _map.rows; }
+    function _mapLayers() { return _map.layers; }
+
+    function _mapLayerVisible(layer, visible) {
+        if (visible != undefined) {
+            _map_layer_info[layer-1].hidden = !visible;
+        }
+        return _qbBoolean(!_map_layer_info[layer-1].hidden);
+    }
+
+    function _mapIsometric(iso) {
+        if (iso != undefined) {
+            _map.isometric = iso;
+            _updateSceneSize();
+        }
+        return _qbBoolean(_map.isometric);
+    }
+
+    function _mapLayerAdd() {
+        _map.layers++;
+        _map_layer_info.push({
+            id: _map.layers,
+            hidden: false
+        });
+        _map_layers.push(_mapLayerInit());
+    }
+
+    function _mapLayerInsert (beforeLayer) {
+        if (beforeLayer < 1 || beforeLayer > GX.mapLayers()) { return; }
+
+        GX.mapLayerAdd();
+        for (var layer = GX.mapLayers(); layer > beforeLayer; layer--) {
+            for (var tile = 0; tile <= GX.mapRows() * GX.mapColumns(); tile++) {
+                _map_layers[layer-1][tile] = _map_layers[layer - 2][tile];
+            }
+        }
+        _map_layers[beforeLayer-1] = _mapLayerInit();
+    }
+
+    function _mapLayerRemove (removeLayer) {
+        if (removeLayer < 1 || removeLayer > GX.mapLayers() || GX.mapLayers < 2) { return; }
+
+        for (var layer = removeLayer; layer < GX.mapLayers(); layer++) {
+            for (var tile = 0; tile <= GX.mapRows() * GX.mapColumns(); tile++) {
+                _map_layers[layer-1][tile] = _map_layers[layer][tile];
+            }
+        }
+        _map_layer_info.pop();
+        _map_layers.pop();
+        _map.layers = GX.mapLayers() - 1;
+    }
+
+    function _mapResize (columns, rows) {
+        var tempMap = structuredClone(_map_layers);
+        _map_layers = new Array(GX.mapLayers());
+
+        var maxColumns = 0;
+        var maxRows = 0;
+        if (columns > GX.mapColumns()) {
+            maxColumns = GX.mapColumns();
+        }
+        else {
+            maxColumns = columns;
+        }
+        if (rows > GX.mapRows) {
+            maxRows = GX.mapRows();
+        }
+        else {
+            maxRows = rows;
+        }
+
+        for (var layer = 1; layer <= GX.mapLayers(); layer++) {
+            _map_layers[layer-1] = _mapLayerInit(columns, rows);
+            for (var row = 0; row < maxRows; row++) {
+                for (var column = 0; column < maxColumns; column++) {
+                    if (column >= GX.mapColumns() || row >= GX.mapRows()) {
+                        _map_layers[layer-1][row * columns + column].tile = 0;
+                    }
+                    else {
+                        _map_layers[layer-1][row * columns + column].tile = tempMap[layer-1][row * GX.mapColumns() + column].tile;
+                    }
+                }
+            }
+        }
+
+        _map.columns = columns;
+        _map.rows = rows;
+    }
+
+    function _mapDraw() {
+        if (_mapRows() < 1) { return; }
+
+        var tpos = {};
+        var srow, scol, row, col;
+        var layer;
+        var yoffset, prow;
+        var t, tx, ty;
+        var rowOffset;
+        var colOffset;
+
+        var xoffset = GX.sceneX() % GX.tilesetWidth();
+        var pcol = Math.floor(GX.sceneX() / GX.tilesetWidth());
+        if (GX.mapIsometric()) {
+            prow = Math.floor(GX.sceneY() / (GX.tilesetWidth() / 4));
+            yoffset = GX.sceneY() % (GX.tilesetWidth() / 4);
+        } else {
+            prow = Math.floor(GX.sceneY() / GX.tilesetHeight());
+            yoffset = GX.sceneY() % GX.tilesetHeight();
+        }
+
+        for (var li = 1; li <= GX.mapLayers(); li++) {
+            if (!_map_layer_info[li-1].hidden) {
+                layer = _map_layer_info[li-1].id;
+
+                srow = 0;
+                rowOffset = 0;
+
+                for (row = prow; row <= prow + GX.sceneRows() + 1; row++) {
+                    scol = 0;
+                    if (!GX.mapIsometric()) {
+                        colOffset = 0;
+                    } else {
+                        colOffset = 0;
+                        if (row % 2 == 0) { colOffset = GX.tilesetWidth() / 2; }
+                    }
+
+                    if (GX.mapIsometric()) {
+                        rowOffset = (row - prow + 1) * (GX.tilesetHeight() - GX.tilesetWidth() / 4);
+                    }
+
+                    for (col = pcol; col <= pcol + GX.sceneColumns() + 1; col++) {
+                        t = GX.mapTile(col, row, layer);
+                        if (t > 0) {
+                            var t1 = t;
+                            t = _tileFrame(t);
+                            GX.tilesetPos(t, tpos);
+                            tx = Math.floor(scol * GX.tilesetWidth() - xoffset - colOffset);
+                            ty = Math.floor(srow * GX.tilesetHeight() - yoffset - rowOffset);
+                            GX.spriteDraw(GX.tilesetImage(), tx, ty, tpos.y, tpos.x, GX.tilesetWidth(), GX.tilesetHeight());
+                        }
+                        scol = scol + 1;
+                    }
+                    srow = srow + 1;
+                }
+            }
+            _drawEntityLayer(li);
+        }
+
+        for (t = 1; t <= GX.tilesetColumns() * GX.tilesetRows(); t++) {
+            _tileFrameNext(t);
+        }
+    }
+
+    function _mapTilePosAt (x, y, tpos) {
+        if (!GX.mapIsometric()) {
+            tpos.x = Math.floor((x + GX.sceneX()) / GX.tilesetWidth());
+            tpos.y = Math.floor((y + GX.sceneY()) / GX.tilesetHeight());
+        } else {
+            var tileWidthHalf = GX.tilesetWidth() / 2;
+            var tileHeightHalf = GX.tilesetHeight() / 2;
+            var sx = x / tileWidthHalf;
+
+            var offset = 0;
+            if (sx % 2 == 1) {
+                offset = tileWidthHalf;
+            }
+
+            tpos.y = (2 * y) / tileHeightHalf;
+            tpos.x = (x - offset) / GX.tilesetWidth();
+        }
+    }
+
+    function _mapTile (col, row, layer, tile) {
+        if (col < 0 || col >= GX.mapColumns() || row < 0 || row >= GX.mapRows() || layer > GX.mapLayers()) { return 0; }
+        var mpos = row * GX.mapColumns() + col;
+        if (tile >= 0) {
+            if (col >= 0 && col <= GX.mapColumns() && row >= 0 && row < GX.mapRows()) {
+                _map_layers[layer-1][mpos].tile = tile;
+            }
+        }
+        return _map_layers[layer-1][mpos].tile;
+    }
+
+    function _mapVersion() {
+        return _map.version
+    }
+
+    // Tileset Methods
+    async function _tilesetCreate (tilesetFilename, tileWidth, tileHeight, tiles, animations) {
+        await GX.tilesetReplaceImage(tilesetFilename, tileWidth, tileHeight);
+
+        _tileset_tiles = [];
+        if (tiles != undefined) {
+            for (var i=0; i < tiles.length; i++) {
+                var tile = tiles[i];
+                _tileset_tiles.push({
+                    id: i+1,
+                    animationId: tile[0],
+                    animationSpeed: tile[1],
+                    animationFrame: tile[2]
+                });
+            }
+        }
+        else {
+            for (var i=0; i < GX.tilesetColumns() * GX.tilesetRows(); i++) {
+                _tileset_tiles.push({
+                    id: i+1,
+                    animationId: 0,
+                    animationSpeed: 0,
+                    animationFrame: 0
+                });
+            }
+        }
+
+        _tileset_animations = [];
+        if (animations != undefined) {
+            for (var i=0; i < animations.length; i++) {
+                var animation = animations[i];
+                _tileset_animations.push({
+                    tileId: animation[0],
+                    firstFrame: animation[1],
+                    nextFrame: animation[2]
+                });
+            }
+        }
+    }
+
+    async function _tilesetReplaceImage (tilesetFilename, tilewidth, tileheight) {
+        _tileset.filename = tilesetFilename;
+        _tileset.width = tilewidth;
+        _tileset.height = tileheight;
+        var imgLoaded = false;
+        _tileset.image = _imageLoad(tilesetFilename, function(img) {
+            _tileset.columns = img.width / GX.tilesetWidth();
+            _tileset.rows = img.height / GX.tilesetHeight();
+            _updateSceneSize();
+            imgLoaded = true;
+        });
+        var waitMillis = 0;
+        while (!imgLoaded && waitMillis < 3000) {
+            await GX.sleep(10);
+            waitMillis += 10;
+        }
+    }
+
+    function _tilesetPos (tilenum, p) {
+        if (GX.tilesetColumns() == 0) {
+            p.x = 0;
+            p.y = 0;
+        } else {
+            p.y = Math.floor((tilenum - 1) / GX.tilesetColumns());
+            p.y = p.y + 1;
+            p.x = (tilenum - 1) % GX.tilesetColumns() + 1;
+        }
+    }
+
+    function _tilesetWidth() { return _tileset.width; }
+    function _tilesetHeight() { return _tileset.height; }
+    function _tilesetColumns() { return _tileset.columns; }
+    function _tilesetRows() { return _tileset.rows; }
+    function _tilesetFilename() { return _tileset.filename; }
+    function _tilesetImage() { return _tileset.image; }
+
+    function _tilesetAnimationCreate (tileId, animationSpeed) {
+        var frameId = _tileset_animations.length;
+        _tileset_animations[frameId] = { tileId: 0, firstFrame: 0, nextFrame: 0 };
+        _tileset_animations[frameId].tileId = tileId;
+        _tileset_animations[frameId].firstFrame = frameId + 1;
+        _tileset_tiles[tileId-1].animationId = frameId + 1;
+        _tileset_tiles[tileId-1].animationSpeed = animationSpeed;
+    }
+
+    function _tilesetAnimationAdd (firstTileId, addTileId) {
+        var firstFrame = _tileset_tiles[firstTileId-1].animationId;
+
+        var lastFrame  = firstFrame;
+        while (_tileset_animations[lastFrame-1].nextFrame > 0) {
+            lastFrame = _tileset_animations[lastFrame-1].nextFrame;
+        }
+
+        var frameId = _tileset_animations.length;
+        _tileset_animations[frameId] = { tileId: 0, firstFrame: 0, nextFrame: 0 };
+        _tileset_animations[frameId].tileId = addTileId;
+        _tileset_animations[frameId].firstFrame = firstFrame;
+        _tileset_animations[lastFrame-1].nextFrame = frameId + 1;
+    }
+
+    function _tilesetAnimationRemove (firstTileId) {
+        _tileset_tiles[firstTileId-1].animationId = 0;
+    }
+
+    function _tilesetAnimationFrames (tileId, tileFrames /* QB Array */) {
+        if (tileId < 0 || tileId > GX.tilesetRows() * GX.tilesetColumns()) { return 0; }
+
+        GX.resizeArray(tileFrames, [{l:0,u:0}], 0);
+        var frameCount = 0;
+        var frame = _tileset_tiles[tileId-1].animationId;
+        while (frame > 0) {
+            frameCount = frameCount + 1
+            GX.resizeArray(tileFrames, [{l:0,u:frameCount}], 0, true);
+            GX.arrayValue(tileFrames, [frameCount]).value = _tileset_animations[frame-1].tileId;
+            frame = _tileset_animations[frame-1].nextFrame;
+        }
+        return frameCount;
+    }
+
+    function _tilesetAnimationSpeed (tileId, speed) {
+        if (tileId > GX.tilesetRows() * GX.tilesetColumns()) { return; }
+        if (speed != undefined) {
+            _tileset_tiles[tileId-1].animationSpeed = speed;
+        }
+        return _tileset_tiles[tileId-1].animationSpeed;
+    }
+
+    function _tileFrame (tileId) {
+        if (tileId < 0 || tileId > _tileset_tiles.length) { return tileId; }
+        if (_tileset_tiles[tileId-1].animationId == 0) { return tileId; }
+
+        var currFrame = _tileset_tiles[tileId-1].animationId;
+        if (_tileset_tiles[tileId-1].animationFrame > 0) {
+            currFrame = _tileset_tiles[tileId-1].animationFrame;
+        }
+
+        return _tileset_animations[currFrame-1].tileId;
+    }
+
+    function _tileFrameNext (tileId) {
+        if (tileId < 0 || tileId > _tileset_tiles.length) { return; }
+        if (_tileset_tiles[tileId-1].animationId == 0) { return; }
+
+        var frame = GX.frame() % GX.frameRate() + 1;
+        var firstFrame = _tileset_tiles[tileId-1].animationId;
+        var animationSpeed = _tileset_tiles[tileId-1].animationSpeed;
+
+        if (frame % Math.round(GX.frameRate() / animationSpeed) == 0) {
+            var currFrame = firstFrame;
+            if (_tileset_tiles[tileId-1].animationFrame > 0) {
+                currFrame = _tileset_tiles[tileId-1].animationFrame;
+            }
+
+            var nextFrame = _tileset_animations[currFrame-1].nextFrame;
+            if (nextFrame == 0) {
+                nextFrame = firstFrame;
+            }
+
+            _tileset_tiles[tileId-1].animationFrame = nextFrame;
+        }
+    }    
+
+    // Miscellaneous Private Methods
+    function _entityCollide (eid1, eid2) {
+        return _rectCollide(
+            GX.entityX(eid1), GX.entityY(eid1), GX.entityWidth(eid1), GX.entityHeight(eid1),
+            GX.entityX(eid2), GX.entityY(eid2), GX.entityWidth(eid2), GX.entityHeight(eid2));
+    }
+    
+    function _rectCollide(r1x1, r1y1, r1w, r1h, r2x1, r2y1, r2w, r2h) {
+        var r1x2 = r1x1 + r1w;
+        var r1y2 = r1y1 + r1h;
+        var r2x2 = r2x1 + r2w;
+        var r2y2 = r2y1 + r2h;
+
+        var collide = 0;
+        if (r1x2 >= r2x1) {
+            if (r1x1 <= r2x2) {
+                if (r1y2 >= r2y1) {
+                    if (r1y1 <= r2y2) {
+                        collide = -1;
+                    }
+                }
+            }
+        }
+        return collide;
+    }
+
+    async function _sceneMoveEntities() {
+        var frameFactor = 1 / GX.frameRate();
+
+        for (var eid = 1; eid <= _entities.length; eid++) {
+            if (!_entities[eid-1].screen) {
+                await _sceneMoveEntity(eid);
+
+                if (GX.entityVX(eid)) {
+                    _entities[eid-1].x = GX.entityX(eid) + GX.entityVX(eid) * frameFactor;
+                }
+                if (GX.entityVY(eid)) {
+                    _entities[eid-1].y = GX.entityY(eid) + GX.entityVY(eid) * frameFactor;
+                }
+            }
+        }
+    }
+
+    async function _sceneMoveEntity(eid) {
+        var tpos = {};
+        var centity = { id: 0 };
+        var tmove = 0;
+        var testx = 0;
+        var testy = 0 ;
+
+        // Test upward movement
+        if (GX.entityVY(eid) < 0) {
+            testy = Math.round(GX.entityVY(eid) / GX.frameRate());
+            if (testy > -1) { testy = -1; }
+            tmove = Math.round(await _entityTestMove(eid, 0, testy, tpos, centity));
+            if (tmove == 0) {
+                if (GX.entityApplyGravity(eid)) {
+                    GX.entityVY(eid, GX.entityVY(eid) * -.5);
+                } else {
+                    GX.entityVY(eid, 0);
+                }
+
+                if (centity.id > 0) {
+                    GX.entityPos(eid, GX.entityX(eid), GX.entityY(centity.id) - GX.entityCollisionOffsetBottom(centity.id) + GX.entityHeight(centity.id) - GX.entityCollisionOffsetTop(eid));
+                } else {
+                    GX.entityPos(eid, GX.entityX(eid), (tpos.y + 1) * GX.tilesetHeight() - GX.entityCollisionOffsetTop(eid));
+                }
+            }
+        }
+
+        if (!GX.entityApplyGravity(eid)) {
+            // Test downward movement
+            if (GX.entityVY(eid) > 0) {
+                testy = Math.round(GX.entityVY(eid) / GX.frameRate());
+                if (testy < 1) { testy = 1; }
+                tmove = Math.round(await _entityTestMove(eid, 0, testy, tpos, centity));
+                if (tmove == 0) {
+                    GX.entityVY(eid, 0);
+
+                    if (centity.id > 0) {
+                        GX.entityPos(eid, GX.entityX(eid), GX.entityY(centity.id) + GX.entityCollisionOffsetTop(centity.id) - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
+                    }
+                    if (tpos.y > -1) {
+                        GX.entityPos(eid, GX.entityX(eid), tpos.y * GX.tilesetHeight() - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
+                    }
+                }
+            }
+        } else {
+
+            // Apply gravity
+            testy = Math.round(GX.entityVY(eid) / GX.frameRate());
+            if (testy < 1) { testy = 1; }
+            tmove = Math.round(await _entityTestMove(eid, 0, testy, tpos, centity));
+            if (tmove == 1) {
+                var t = (GX.frame() - _entities[eid-1].jumpstart) / GX.frameRate();
+                var g = _gravity * t ** 2 / 2;
+                if (g < 1) { g = 1; }
+                _entities[eid-1].vy = GX.entityVY(eid) + g;
+                if (GX.entityVY(eid) > _terminal_velocity) { GX.entityVY(eid, _terminal_velocity); }
+
+            } else if (GX.entityVY(eid) >= 0) {
+                _entities[eid-1].jumpstart = GX.frame();
+                if (GX.entityVY(eid) != 0) {
+                    GX.entityVY(eid, 0);
+
+                    if (centity.id > 0) {
+                        GX.entityPos(eid, GX.entityX(eid), GX.entityY(centity.id) + GX.entityCollisionOffsetTop(centity.id) - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
+                    }
+                    else {
+                        GX.entityPos(eid, GX.entityX(eid), tpos.y * GX.tilesetHeight() - GX.entityHeight(eid) + GX.entityCollisionOffsetBottom(eid));
+                    }
+                }
+            }
+        }
+
+        if (GX.entityVX(eid) > 0) {
+            // Test right movement
+            testx = Math.round(GX.entityVX(eid) / GX.frameRate());
+            if (testx < 1) { testx = 1 };
+            tmove = Math.round(await _entityTestMove(eid, testx, 0, tpos, centity));
+            if (tmove == 0) {
+                GX.entityVX(eid, 0);
+
+                if (centity.id > 0) {
+                    GX.entityPos(eid, GX.entityX(centity.id) + GX.entityCollisionOffsetLeft(centity.id) - GX.entityWidth(eid) + GX.entityCollisionOffsetRight(eid), GX.entityY(eid));
+                }
+                if (tpos.x > -1) {
+                    GX.entityPos(eid, tpos.x * GX.tilesetWidth() - GX.entityWidth(eid) + GX.entityCollisionOffsetRight(eid), GX.entityY(eid));
+                }
+            }
+
+        } else if (GX.entityVX(eid) < 0) {
+            // Test left movement
+            testx = Math.round(GX.entityVX(eid) / GX.frameRate());
+            if (testx > -1) { testx = -1 };
+            tmove = Math.round(await _entityTestMove(eid, testx, 0, tpos, centity));
+            if (tmove == 0) {
+                GX.entityVX(eid, 0);
+
+                if (centity.id > 0) {
+                    GX.entityPos(eid, GX.entityX(centity.id) + GX.entityWidth(centity.id) - GX.entityCollisionOffsetRight(centity.id) - GX.entityCollisionOffsetLeft(eid), GX.entityY(eid));
+                }
+                if (tpos.x > -1) {
+                    GX.entityPos(eid, (tpos.x + 1) * GX.tilesetWidth() - GX.entityCollisionOffsetLeft(eid), GX.entityY(eid));
+                }
+            }
+        }
+    }
+
+    async function _entityTestMove (entity, mx, my, tpos, collisionEntity) {
+        tpos.x = -1;
+        tpos.y = -1;
+
+        var tcount = 0;
+        var tiles = [];
+        _entityCollisionTiles(entity, mx, my, tiles, tcount);
+
+        var move = 1;
+
+        // Test for tile collision
+        var tile = 0;
+        for (var i = 0; i < tiles.length; i++) {
+            var e = {};
+            e.entity = entity;
+            e.event = GX.EVENT_COLLISION_TILE;
+            e.collisionTileX = tiles[i].x;
+            e.collisionTileY = tiles[i].y;
+            e.collisionResult = false;
+            
+            if (_onGameEvent) {
+                await _onGameEvent(e);
+            }
+            if (e.collisionResult) {
+                move = 0;
+                tpos.x = tiles[i].x;
+                tpos.y = tiles[i].y;
+            }
+        }
+
+        // Test for entity collision
+        var entities = [];
+        var ecount = _entityCollision(entity, mx, my, entities);
+        for (var i=0; i < ecount; i++) {
+            var e = {};
+            e.entity = entity;
+            e.event = GX.EVENT_COLLISION_ENTITY;
+            e.collisionEntity = entities[i];
+            e.collisionResult = false;
+            if (_onGameEvent) {
+                await _onGameEvent(e);
+            }
+            if (e.collisionResult) {
+                move = 0;
+                collisionEntity.id = entities[i];
+            }
+        }
+
+        return move;
+    }
+
+    function _entityCollide (eid1, eid2) {
+        return _rectCollide( 
+            GX.entityX(eid1) + GX.entityCollisionOffsetLeft(eid1), 
+            GX.entityY(eid1) + GX.entityCollisionOffsetTop(eid1), 
+            GX.entityWidth(eid1) - GX.entityCollisionOffsetLeft(eid1) - GX.entityCollisionOffsetRight(eid1) - 1,
+            GX.entityHeight(eid1) - GX.entityCollisionOffsetTop(eid1) - GX.entityCollisionOffsetBottom(eid1) - 1,
+            GX.entityX(eid2) + GX.entityCollisionOffsetLeft(eid2),
+            GX.entityY(eid2) + GX.entityCollisionOffsetTop(eid2),
+            GX.entityWidth(eid2) - GX.entityCollisionOffsetLeft(eid2) - GX.entityCollisionOffsetRight(eid2) - 1,
+            GX.entityHeight(eid2) - GX.entityCollisionOffsetTop(eid2) - GX.entityCollisionOffsetBottom(eid2) - 1);
+    }
+
+    function _entityCollision(eid, movex, movey, entities) {
+        var ecount = 0;
+
+        for (var i = 1; i <= _entities.length; i++) {
+            if (i != eid) {
+                if (_rectCollide(GX.entityX(eid) + GX.entityCollisionOffsetLeft(eid) + movex, 
+                    GX.entityY(eid) + GX.entityCollisionOffsetTop(eid) + movey, 
+                    GX.entityWidth(eid) - GX.entityCollisionOffsetLeft(eid) - GX.entityCollisionOffsetRight(eid) - 1,
+                    GX.entityHeight(eid) - GX.entityCollisionOffsetTop(eid) - GX.entityCollisionOffsetBottom(eid) - 1,
+                    GX.entityX(i) + GX.entityCollisionOffsetLeft(i),
+                    GX.entityY(i) + GX.entityCollisionOffsetTop(i),
+                    GX.entityWidth(i) - GX.entityCollisionOffsetLeft(i) - GX.entityCollisionOffsetRight(i) - 1,
+                    GX.entityHeight(i) - GX.entityCollisionOffsetTop(i) - GX.entityCollisionOffsetBottom(i)-1)) {
+                    ecount = ecount + 1;
+                    entities.push(i);
+                }
+            }
+        }
+        return ecount;
+    }
+
+    function _entityCollisionTiles(entity, movex, movey, tiles, tcount) {
+        var tx = 0;
+        var ty = 0;
+        var tx0 = 0;
+        var txn = 0;
+        var ty0 = 0;
+        var tyn = 0;
+        var x = 0;
+        var y = 0;
+        var i = 0;
+
+        if (movex != 0) {
+            var startx = Math.round(-1 + GX.entityCollisionOffsetLeft(entity));
+            if (movex > 0) { 
+                startx = Math.round(GX.entityWidth(entity) + movex - GX.entityCollisionOffsetRight(entity));
+            }
+            tx = Math.floor((GX.entityX(entity) + startx) / GX.tilesetWidth())
+
+            tcount = 0;
+            ty0 = 0;
+            for (y = GX.entityY(entity) + GX.entityCollisionOffsetTop(entity); y <= GX.entityY(entity) + GX.entityHeight(entity) - 1 - GX.entityCollisionOffsetBottom(entity); y++) {
+                ty = Math.floor(y / GX.tilesetHeight());
+                if (tcount == 0) { ty0 = ty; }
+                if (ty != tyn) {
+                    tcount = tcount + 1;
+                }
+                tyn = ty;
+            }
+
+            for (ty = ty0; ty <= tyn; ty++) {
+                tiles.push({
+                    x: tx,
+                    y: ty
+                });
+            }
+        }
+
+        if (movey != 0) {
+            var starty = Math.round(-1 + GX.entityCollisionOffsetTop(entity));
+            if (movey > 0) { 
+                starty = Math.round(GX.entityHeight(entity) + movey - GX.entityCollisionOffsetBottom(entity));
+            }
+            ty = Math.floor((GX.entityY(entity) + starty) / GX.tilesetHeight());
+
+            tcount = 0;
+            tx0 = 0;
+            for (x = GX.entityX(entity) + GX.entityCollisionOffsetLeft(entity); x <= GX.entityX(entity) + GX.entityWidth(entity) - 1 - GX.entityCollisionOffsetRight(entity); x++) {
+                tx = Math.floor(x / GX.tilesetWidth());
+                if (tcount == 0) { tx0 = tx; }
+                if (tx != txn) {
+                    tcount = tcount + 1;
+                }
+                txn = tx;
+            }
+
+            for (tx = tx0; tx <= txn; tx++) {
+                tiles.push({
+                    x: tx,
+                    y: ty
+                })
+            }
+        }
+    }
+
+    function _fullScreen(fullscreenFlag, smooth) {
+        if (fullscreenFlag != undefined) {
+            if (fullscreenFlag) {
+                if (!smooth) {
+                    _canvas.style.imageRendering = "pixelated";
+                }
+                else {
+                    _canvas.style.imageRendering = undefined;
+                }
+        
+                if (_canvas.requestFullscreen) {
+                    _canvas.requestFullscreen();
+                    _fullscreenFlag = true;
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    _fullscreenFlag = false;
+                }
+            }
+        }
+        return _qbBoolean(_fullscreenFlag);
+    }
+
+    // Bitmap Font Methods
+    function _fontCreate(filename, charWidth, charHeight, charref) {
+        var font = {
+            eid: GX.entityCreate(filename, charWidth, charHeight, 1),
+            charSpacing: 0,
+            lineSpacing: 0
+        };
+
+        GX.entityVisible(font.eid, false);
+        _fonts.push(font);
+        _font_charmap.push(new Array(256).fill({x:0,y:0}));
+        var fid = _fonts.length;
+
+        _fontMapChars(fid, charref);
+
+        return fid;
+    }
+
+    function _fontWidth (fid) {
+        return GX.entityWidth(_fonts[fid-1].eid);
+    }
+
+    function _fontHeight (fid) {
+        return GX.entityHeight(_fonts[fid-1].eid);
+    }
+
+    function _fontCharSpacing (fid, charSpacing) {
+        if (charSpacing != undefined) {
+            _fonts[fid-1].charSpacing = charSpacing;
+        }
+        return _fonts[fid-1].charSpacing;
+    }
+
+    function _fontLineSpacing (fid, lineSpacing) {
+        if (lineSpacing != undefined) {
+            _fonts[fid-1].lineSpacing = lineSpacing;
+        }
+        return _fonts[fid-1].lineSpacing;
+    }
+
+    function _drawText (fid, sx, sy, s) {
+        if (s == undefined) { return; }
+        var x = sx;
+        var y = sy;
+        var font = _fonts[fid-1];
+        var e = _entities[font.eid-1];
+
+        for (var i = 0; i < s.length; i++) {
+            var a = s.charCodeAt(i);
+            if (a == 10) { // Line feed, move down to the next line
+                x = sx;
+                y = y + e.height + font.lineSpacing;
+            } else if (a != 13) { // Ignore Carriage Return
+                if (a != 32) { // Space character, nothing to draw
+                    var cpos = _font_charmap[fid-1][a];
+                    GX.spriteDraw(e.image, x, y, cpos.y, cpos.x, e.width, e.height);
+                }
+                x = x + e.width + font.charSpacing;
+            }
+        }
+    }
+
+    function _fontMapChars (fid, charref) {
+        var cx = 1;
+        var cy = 1;
+        for (var i = 0; i < charref.length; i++) {
+            var a = charref.charCodeAt(i);
+            if (a == 10) {
+                cx = 1;
+                cy = cy + 1;
+            } else {
+                if (a >= 33 && a <= 256) {
+                    _font_charmap[fid-1][a] = {x: cx, y: cy};
+                }
+                cx = cx + 1;
+            }
+        }
+    }
+
+    function _fontCreateDefault (fid) {
+        var filename = null;
+        if (fid == GX.FONT_DEFAULT_BLACK) {
+            filename = "gx/__gx_font_default_black.png";
+        } else {
+            filename = "gx/__gx_font_default.png";
+        }
+
+        _fonts[fid-1].eid = GX.entityCreate(filename, 6, 8, 1);
+        GX.entityVisible(_fonts[fid-1].eid, false);
+        _fontMapChars(fid, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~`!@#$%^&*()_-+={}[]|\\,./<>?:;\"'");
+        GX.fontLineSpacing(fid, 1);
+    }
+
+    // Input Device Methods
+    function _mouseInput() {
+        var mi = _mouseInputFlag;
+        _mouseInputFlag = false;
+        return mi;
+    }
+
+    function _mouseX() {
+        return Math.round((_mousePos.x - _scene.offsetX) / _scene.scaleX);
+    }
+
+    function _mouseY() {
+        return Math.round((_mousePos.y - _scene.offsetY) / _scene.scaleY);
+    }
+
+    function _mouseButton(button) {
+        return _mouseButtons[button-1];
+    }
+
+    function _mouseWheel() {
+        var mw = _mouseWheelFlag;
+        _mouseWheelFlag = 0;
+        return mw;
+    }
+
+    function _touchInput() {
+        var ti = _touchInputFlag;
+        _touchInputFlag = false;
+        return ti;
+    }
+
+    function _touchX() {
+        return _touchPos.x;
+    }
+
+    function _touchY() {
+        return _touchPos.y;
+    }
+    
+    function _enableTouchMouse(enable) {
+        _bindTouchToMouse = enable;
+    }
+
+    function _deviceInputTest(di) {
+        if (di.deviceType == GX.DEVICE_KEYBOARD) {
+            if (di.inputType == GX.DEVICE_BUTTON) {
+                return GX.keyDown(di.inputId);
+            }
+        }
+        return _qbBoolean(false);
+    }
+
+    function _keyInput (k, di) {
+        di.deviceId = GX.DEVICE_KEYBOARD;
+        di.deviceType = GX.DEVICE_KEYBOARD;
+        di.inputType = GX.DEVICE_BUTTON;
+        di.inputId = k;
+        di.inputValue = -1;
+    }
+
+    function _keyButtonName (inputId ) {
+        var k;
+        switch (inputId) {
+            case GX.KEY_ESC: k = "Esc"; break;
+            case GX.KEY_1: k = "1"; break;
+            case GX.KEY_2: k = "2"; break;
+            case GX.KEY_3: k = "3"; break;
+            case GX.KEY_4: k = "4"; break;
+            case GX.KEY_5: k = "5"; break;
+            case GX.KEY_6: k = "6"; break;
+            case GX.KEY_7: k = "7"; break;
+            case GX.KEY_8: k = "8"; break;
+            case GX.KEY_9: k = "9"; break;
+            case GX.KEY_0: k = "0"; break;
+            case GX.KEY_DASH: k = "-"; break;
+            case GX.KEY_EQUALS: k = "="; break;
+            case GX.KEY_BACKSPACE: k = "Bksp"; break;
+            case GX.KEY_TAB: k = "Tab"; break;
+            case GX.KEY_Q: k = "Q"; break;
+            case GX.KEY_W: k = "W"; break;
+            case GX.KEY_E: k = "E"; break;
+            case GX.KEY_R: k = "R"; break;
+            case GX.KEY_T: k = "T"; break;
+            case GX.KEY_Y: k = "Y"; break;
+            case GX.KEY_U: k = "U"; break;
+            case GX.KEY_I: k = "I"; break;
+            case GX.KEY_O: k = "O"; break;
+            case GX.KEY_P: k = "P"; break;
+            case GX.KEY_LBRACKET: k = "["; break;
+            case GX.KEY_RBRACKET: k = "]"; break;
+            case GX.KEY_ENTER: k = "Enter"; break;
+            case GX.KEY_LCTRL: k = "LCtrl"; break;
+            case GX.KEY_A: k = "A"; break;
+            case GX.KEY_S: k = "S"; break;
+            case GX.KEY_D: k = "D"; break;
+            case GX.KEY_F: k = "F"; break;
+            case GX.KEY_G: k = "G"; break;
+            case GX.KEY_H: k = "H"; break;
+            case GX.KEY_J: k = "J"; break;
+            case GX.KEY_K: k = "K"; break;
+            case GX.KEY_L: k = "L"; break;
+            case GX.KEY_SEMICOLON: k = ";"; break;
+            case GX.KEY_QUOTE: k = "'"; break;
+            case GX.KEY_BACKQUOTE: k = "``"; break;
+            case GX.KEY_LSHIFT: k = "LShift"; break;
+            case GX.KEY_BACKSLASH: k = "\\"; break;
+            case GX.KEY_Z: k = "Z"; break;
+            case GX.KEY_X: k = "X"; break;
+            case GX.KEY_C: k = "C"; break;
+            case GX.KEY_V: k = "V"; break;
+            case GX.KEY_B: k = "B"; break;
+            case GX.KEY_N: k = "N"; break;
+            case GX.KEY_M: k = "M"; break;
+            case GX.KEY_COMMA: k = ","; break;
+            case GX.KEY_PERIOD: k = "."; break;
+            case GX.KEY_SLASH: k = "Slash"; break;
+            case GX.KEY_RSHIFT: k = "RShift"; break;
+            case GX.KEY_NUMPAD_MULTIPLY: k = "NPad *"; break;
+            case GX.KEY_SPACEBAR: k = "Space"; break;
+            case GX.KEY_CAPSLOCK: k = "CapsLk"; break;
+            case GX.KEY_F1: k = "F1"; break;
+            case GX.KEY_F2: k = "F2"; break;
+            case GX.KEY_F3: k = "F3"; break;
+            case GX.KEY_F4: k = "F4"; break;
+            case GX.KEY_F5: k = "F5"; break;
+            case GX.KEY_F6: k = "F6"; break;
+            case GX.KEY_F7: k = "F7"; break;
+            case GX.KEY_F8: k = "F8"; break;
+            case GX.KEY_F9: k = "F9"; break;
+            case GX.KEY_F10: k = "F10"; break;
+            case GX.KEY_PAUSE: k = "Pause"; break;
+            case GX.KEY_SCRLK: k = "ScrLk"; break;
+            case GX.KEY_NUMPAD_7: k = "Numpad 7"; break;
+            case GX.KEY_NUMPAD_8: k = "Numpad 8"; break;
+            case GX.KEY_NUMPAD_9: k = "Numpad 9"; break;
+            case GX.KEY_NUMPAD_MINUS: k = "-"; break;
+            case GX.KEY_NUMPAD_4: k = "Numpad 4"; break;
+            case GX.KEY_NUMPAD_5: k = "Numpad 5"; break;
+            case GX.KEY_NUMPAD_6: k = "Numpad 6"; break;
+            case GX.KEY_NUMPAD_PLUS: k = "+"; break;
+            case GX.KEY_NUMPAD_1: k = "Numpad 1"; break;
+            case GX.KEY_NUMPAD_2: k = "Numpad 2"; break;
+            case GX.KEY_NUMPAD_3: k = "Numpad 3"; break;
+            case GX.KEY_NUMPAD_0: k = "Numpad 0"; break;
+            case GX.KEY_NUMPAD_PERIOD: k = "Numpad ."; break;
+            case GX.KEY_F11: k = "F11"; break;
+            case GX.KEY_F12: k = "F12"; break;
+            case GX.KEY_NUMPAD_ENTER: k = "Numpad Enter"; break;
+            case GX.KEY_RCTRL: k = "RCtrl"; break;
+            case GX.KEY_NUMPAD_DIVIDE: k = "Numpad /"; break;
+            case GX.KEY_NUMLOCK: k = "NumLk"; break;
+            case GX.KEY_HOME: k = "Home"; break;
+            case GX.KEY_UP: k = "Up"; break;
+            case GX.KEY_PAGEUP: k = "PgUp"; break;
+            case GX.KEY_LEFT: k = "Left"; break;
+            case GX.KEY_RIGHT: k = "Right"; break;
+            case GX.KEY_END: k = "End"; break;
+            case GX.KEY_DOWN: k = "Down"; break;
+            case GX.KEY_PAGEDOWN: k = "PgDn"; break;
+            case GX.KEY_INSERT: k = "Ins"; break;
+            case GX.KEY_DELETE: k = "Del"; break;
+            case GX.KEY_LWIN: k = "LWin"; break;
+            case GX.KEY_RWIN: k = "RWin"; break;
+            case GX.KEY_MENU: k = "Menu"; break;
+            case GX.KEY_LALT: k = "LAlt"; break;
+            case GX.KEY_RALT: k = "RAlt"; break;
+            default: k = inputId; break; // Fallback for unknown keys
+        }
+        return k;
+    }
+
+    // Debugging Methods
+    function _debug(enabled) {
+        if (enabled != undefined) {
+            __debug.enabled = enabled;
+        }
+        return _qbBoolean(__debug.enabled);
+    }
+
+    function _debugFont(font) {
+        if (font != undefined) {
+            __debug.font = font;
+        }
+        return __debug.font;
+    }
+
+    function _debugTileBorderColor(c) {
+        if (c != undefined) {
+            _debug.tileBorderColor = c;
+        }
+        return _debug.tileBorderColor;
+    }
+
+    function _debugEntityBorderColor(c) {
+        if (c != undefined) {
+            _debug.entityBorderColor = c;
+        }
+        return _debug.entityBorderColor;
+    }
+
+    function _debugEntityCollisionColor(c) {
+        if (c != undefined) {
+            _debug.entityCollisionColor = c;
+        }
+        return _debug.entityCollisionColor;
+    }
+
+    function _debugFrameRate() {
+        var frame = String(GX.frame());
+        var frameRate = String(GX.frameRate());
+        frameRate = frameRate.padStart(frame.length - frameRate.length, " ");
+
+        GX.drawText(GX.debugFont(), GX.sceneWidth() - (frame.length + 6) * 6 - 1, 1, "FRAME:" + frame);
+        GX.drawText(GX.debugFont(), GX.sceneWidth() - (frameRate.length + 4) * 6 - 1, 9, "FPS:" + frameRate);
+    }
+
+    function _sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    };
+
+    /* ---------- REPLACEMENT: improved _showInput / _hideInput  ---------- */
+    function _showInput(cx, cy) {
+        // cx, cy are optional coordinates (page coordinates relative to canvas) - used to position input
+        var hiddenInput = document.getElementById("gx-hidden-input");
+        if (!hiddenInput) {
+            hiddenInput = document.createElement('input');
+            hiddenInput.id = "gx-hidden-input";
+            hiddenInput.type = "text";
+            hiddenInput.autocapitalize = "off";
+            hiddenInput.autocomplete = "off";
+            hiddenInput.autocorrect = "off";
+            hiddenInput.spellcheck = false;
+            hiddenInput.setAttribute('inputmode','text'); // hints mobile keyboards
+            // style such that input is focusable and inside viewport but visually invisible
+            Object.assign(hiddenInput.style, {
+                position: 'absolute',
+                zIndex: 2147483647,
+                opacity: '0.01',    // NOT 0 — some browsers ignore fully-transparent elements
+                left: '0px',
+                top: '0px',
+                width: '1px',
+                height: '1px',
+                border: 'none',
+                padding: '0',
+                margin: '0',
+                background: 'transparent',
+                outline: 'none'
+            });
+            document.body.appendChild(hiddenInput);
+
+            // forward keydown / keyup to game events
+            hiddenInput.addEventListener('keydown', function(e) {
+                if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_DOWN, key: e.key });
+                // allow navigation keys etc to behave normally (don't prevent)
+            }, false);
+            hiddenInput.addEventListener('keyup', function(e) {
+                if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_UP, key: e.key });
+            }, false);
+
+            // input: commit typed characters (handles many simple cases)
+            hiddenInput.addEventListener('input', function(e) {
+                var v = e.target.value;
+                if (v && v.length > 0) {
+                    if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_TYPED, key: v });
+                    e.target.value = "";
+                }
+            });
+
+            // composition events: handle IME properly (CJK, Devanagari, etc.)
+            hiddenInput.addEventListener('compositionend', function(e) {
+                if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_TYPED, key: e.data });
+                hiddenInput.value = "";
+            });
+
+            // when keyboard is dismissed (blur) hide the input again
+            hiddenInput.addEventListener('blur', function(e) {
+                hiddenInput.style.display = 'none';
+                // optional notification: keyboard dismissed
+                if (_onGameEvent) { _onGameEvent({ event: 'GX_EVENT_KEYBOARD_DISMISSED' }); }
+            });
+        }
+
+        // make sure it's visible and placed inside viewport (use provided coords if any)
+        hiddenInput.style.display = 'block';
+        if (typeof cx === 'number' && typeof cy === 'number') {
+            // try to position input near touch (use small offset so it's inside viewport)
+            hiddenInput.style.left = Math.max(0, Math.floor(cx)) + 'px';
+            hiddenInput.style.top = Math.max(0, Math.floor(cy)) + 'px';
+        } else {
+            // default position (top-left)
+            hiddenInput.style.left = '4px';
+            hiddenInput.style.top = '4px';
+        }
+
+        // ensure the DOM has updated and then focus (setTimeout improves reliability on Android)
+        // try immediate focus first (should work in most modern browsers)
+        try { hiddenInput.focus(); } catch (ex) {}
+        // fallback: re-focus shortly after to cover browser timing quirks
+        setTimeout(function() {
+            try { hiddenInput.focus(); } catch (ex) {}
+        }, 50);
+    }
+
+    function _hideInput() {
+        var hiddenInput = document.getElementById("gx-hidden-input");
+        if (hiddenInput) {
+            try { hiddenInput.blur(); } catch (ex) {}
+            hiddenInput.style.display = 'none';
         }
     }
 
     /* ---------- REPLACEMENT: updated _init() mobile keyboard handling ---------- */
     function _init() {
+        _vfsCwd = _vfs.rootDirectory();
+
+        _fontCreateDefault(GX.FONT_DEFAULT);
+        _fontCreateDefault(GX.FONT_DEFAULT_BLACK);
+
         _isMobileDevice = /Mobi|Android/i.test(navigator.userAgent);
         window.addEventListener("resize", function() {
             // Optional: Handle window resize event if needed
@@ -1443,168 +2422,457 @@ var GX = new function() {
                 document.body.appendChild(hiddenInput);
             }
         })();
-    }    
 
-    // Public API
-    return {
-        // Constants
-        FONT_DEFAULT: 1,
-        FONT_DEFAULT_BLACK: 2,
-        BG_STRETCH: 1,
-        BG_SCROLL: 2,
-        BG_WRAP: 3,
-        SCENE_FOLLOW_NONE: 0,
-        SCENE_FOLLOW_ENTITY_CENTER: 1,
-        SCENE_FOLLOW_ENTITY_CENTER_X: 2,
-        SCENE_FOLLOW_ENTITY_CENTER_Y: 3,
-        SCENE_FOLLOW_ENTITY_CENTER_X_POS: 4,
-        SCENE_FOLLOW_ENTITY_CENTER_X_NEG: 5,
-        SCENE_CONSTRAIN_NONE: 0,
-        SCENE_CONSTRAIN_TO_MAP: 1,
-        ANIMATE_LOOP: 1,
-        ANIMATE_SINGLE: 2,
-        // Events
-        EVENT_INIT: 1,
-        EVENT_UPDATE: 2,
-        EVENT_DRAWBG: 3,
-        EVENT_DRAWMAP: 4,
-        EVENT_DRAWSCREEN: 5,
-        EVENT_PAINTBEFORE: 6,
-        EVENT_PAINTAFTER: 7,
-        EVENT_KEY_DOWN: 8,
-        EVENT_KEY_UP: 9,
-        EVENT_KEY_TYPED: 10,
-        EVENT_ANIMATE_COMPLETE: 11,
-        // Keys
-        KEY_UP: "ArrowUp",
-        KEY_DOWN: "ArrowDown",
-        KEY_LEFT: "ArrowLeft",
-        KEY_RIGHT: "ArrowRight",
-        KEY_SPACEBAR: " ",
-        KEY_ENTER: "Enter",
-        KEY_BACKSPACE: "Backspace",
+        if (_isMobileDevice) {
+            console.log("Mobile device detected. Initializing touch controls.");
+            // The touchstart listener on document.body is removed as the new hidden input logic handles focus.
+            // The touch control buttons setup remains as it's for game-specific virtual buttons.
 
-        // Core / Init
-        init: _init,
-        registerGameEvents: _registerGameEvents,
-        resourcesLoaded: _resourcesLoaded,
-        reset: _reset,
+            const setupTouchButton = (id, controlKey) => {
+                const button = document.getElementById(id);
+                if (button) {
+                    button.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        _touchControls[controlKey] = true;
+                    }, { passive: false });
+                    button.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        _touchControls[controlKey] = false;
+                    }, { passive: false });
+                    button.addEventListener('touchcancel', (e) => {
+                        e.preventDefault();
+                        _touchControls[controlKey] = false;
+                    }, { passive: false });
+                    button.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        _touchControls[controlKey] = true;
+                    });
+                    button.addEventListener('mouseup', (e) => {
+                        e.preventDefault();
+                        _touchControls[controlKey] = false;
+                    });
+                    button.addEventListener('mouseleave', (e) => {
+                        if (e.buttons === 1) {
+                            _touchControls[controlKey] = false;
+                        }
+                    });
+                } else {
+                    console.warn(`Touch control button with ID '${id}' not found.`);
+                }
+            };
 
-        // Scene
-        sceneCreate: _sceneCreate,
-        sceneResize: _sceneResize,
-        sceneScale: _sceneScale,
-        sceneStart: _sceneStart,
-        sceneStop: _sceneStop,
-        sceneDraw: _sceneDraw,
-        sceneUpdate: _sceneUpdate,
-        sceneFollowEntity: _sceneFollowEntity,
-        sceneConstrain: _sceneConstrain,
-        sceneMove: _sceneMove,
-        scenePos: _scenePos,
-        sceneX: _sceneX,
-        sceneY: _sceneY,
-        sceneWidth: _sceneWidth,
-        sceneHeight: _sceneHeight,
-        sceneColumns: _sceneColumns,
-        sceneRows: _sceneRows,
-        sceneActive: _sceneActive, // Exposed scene active state
+            setupTouchButton('touch-up', 'up');
+            setupTouchButton('touch-down', 'down');
+            setupTouchButton('touch-left', 'left');
+            setupTouchButton('touch-right', 'right');
+            setupTouchButton('touch-action', 'action');
 
-        // Frame
-        frameRate: _frameRate,
-        frame: _frame,
-
-        // Input
-        keyDown: _keyDown,
-        mouseButtons: function(button) { return _mouseButtons[button-1]; },
-        mouseWheel: function() { return _mouseWheelFlag; },
-        mousePos: function() { return _mousePos; },
-        showInput: _showInput,
-        hideInput: _hideInput,
-
-        // Images
-        imageLoad: _imageLoad,
-        image: _image,
-        spriteDraw: _spriteDraw,
-        spriteDrawScaled: _spriteDrawScaled,
-
-        // Background
-        backgroundAdd: _backgroundAdd,
-        backgroundWrapFactor: _backgroundWrapFactor, // Corrected reference
-        backgroundClear: _backgroundClear,
-
-        // Sound
-        soundLoad: _soundLoad,
-        soundPlay: _soundPlay,
-        soundRepeat: _soundRepeat,
-        soundVolume: _soundVolume,
-        soundPause: _soundPause,
-        soundStop: _soundStop,
-        soundStopAll: _soundStopAll,
-        soundMuted: _soundMuted,
-
-        // Entity
-        entityCreate: _entityCreate,
-        screenEntityCreate: _screenEntityCreate,
-        entityPos: _entityPos,
-        entityMove: _entityMove,
-        entityVX: _entityVX,
-        entityVY: _entityVY,
-        entityVisible: _entityVisible,
-        entityX: _entityX,
-        entityY: _entityY,
-        entityWidth: _entityWidth,
-        entityHeight: _entityHeight,
-        entityAnimate: _entityAnimate,
-        entityAnimateStop: _entityAnimateStop,
-        entityAnimateMode: _entityAnimateMode,
-        entityFrameNext: _entityFrameNext,
-        entityFrameSet: _entityFrameSet,
-        entityFrame: _entityFrame,
-        entitySequence: _entitySequence,
-        entitySequences: _entitySequences,
-        entityFrames: _entityFrames,
-        entityType: _entityType,
-        entityMapLayer: _entityMapLayer,
-        entityApplyGravity: _entityApplyGravity,
-        entityCollisionOffset: _entityCollisionOffset,
-        entityCollisionOffsetLeft: _entityCollisionOffsetLeft,
-        entityCollisionOffsetTop: _entityCollisionOffsetTop,
-        entityCollisionOffsetRight: _entityCollisionOffsetRight,
-        entityCollisionOffsetBottom: _entityCollisionOffsetBottom,
-
-        // Map
-        mapCreate: _mapCreate,
-        mapLoad: _mapLoad,
-        mapSave: _mapSave,
-        mapColumns: function() { return _map.columns; },
-        mapRows: function() { return _map.rows; },
-        mapLayers: function() { return _map.layers; },
-        mapIsometric: _mapIsometric,
-        mapDraw: _mapDraw,
-        mapTile: _mapTile,
-        mapTileId: _mapTileId,
-        mapTilePos: _mapTilePos,
-        mapClear: _mapClear,
-
-        // Tileset
-        tilesetCreate: _tilesetCreate,
-        tilesetWidth: function() { return _tileset.width; },
-        tilesetHeight: function() { return _tileset.height; },
-        tilesetTileType: _tilesetTileType,
-        tilesetTileId: _tilesetTileId,
-
-        // Misc
-        gravity: function() { return _gravity; },
-        terminalVelocity: function() { return _terminal_velocity; },
-        vfs: function() { return _vfs; },
-        debug: function(enabled, font) {
-            if (enabled != undefined) { __debug.enabled = enabled; }
-            if (font != undefined) { __debug.font = font; }
-            return _qbBoolean(__debug.enabled);
-        },
+            const touchControlsContainer = document.getElementById('touch-controls');
+            if (touchControlsContainer) {
+                touchControlsContainer.style.display = 'block';
+            }
+        } else {
+            const touchControlsContainer = document.getElementById('touch-controls');
+            if (touchControlsContainer) {
+                touchControlsContainer.style.display = 'none';
+            }
+        }
     }
-}
+
+    this.ctx = function() { return _ctx; };
+    this.canvas = function() { return _canvas; };
+    this.vfs = function() { return _vfs; };
+    this.vfsCwd = function(cwd) {
+        if (cwd != undefined) {
+            _vfsCwd = cwd;
+        }
+        return _vfsCwd;
+    };
+
+    this.frame = _frame;
+    this.frameRate = _frameRate;
+
+    this.sceneColumns = _sceneColumns;
+    this.sceneConstrain = _sceneConstrain;
+    this.sceneCreate = _sceneCreate;
+    this.sceneDraw = _sceneDraw;
+    this.sceneFollowEntity = _sceneFollowEntity;
+    this.sceneHeight = _sceneHeight;
+    this.sceneMove = _sceneMove;
+    this.scenePos = _scenePos;
+    this.sceneResize = _sceneResize;
+    this.sceneRows = _sceneRows;
+    this.sceneScale = _sceneScale;
+    this.sceneStart = _sceneStart;
+    this.sceneStop = _sceneStop;
+    this.sceneUpdate = _sceneUpdate;
+    this.sceneWidth = _sceneWidth;
+    this.sceneX = _sceneX;
+    this.sceneY = _sceneY;
+        
+    this.spriteDraw = _spriteDraw;
+    this.spriteDrawScaled = _spriteDrawScaled;
+
+    this.backgroundAdd = _backgroundAdd;
+    this.backgroundWrapFactor = _backgroundWrapFactor;
+    this.backgroundClear = _backgroundClear;
+
+    this.soundClose = _soundClose;
+    this.soundLoad = _soundLoad;
+    this.soundPlay = _soundPlay;
+    this.soundRepeat = _soundRepeat;
+    this.soundPause = _soundPause;
+    this.soundStop = _soundStop;
+    this.soundStopAll = _soundStopAll;
+    this.soundVolume = _soundVolume;
+    this.soundMuted = _soundMuted;
+
+    this.entityCreate = _entityCreate;
+    this.screenEntityCreate = _screenEntityCreate;
+    this.entityAnimate = _entityAnimate;
+	this.entityAnimateStop = _entityAnimateStop;
+    this.entityAnimateMode = _entityAnimateMode;
+    this.entityX = _entityX;
+    this.entityY = _entityY;
+    this.entityWidth = _entityWidth;
+    this.entityHeight = _entityHeight;
+    this.entityMove = _entityMove;
+	this.entityPos =  _entityPos;
+    this.entityVX = _entityVX;
+    this.entityVY = _entityVY;
+	this.entityFrameNext = _entityFrameNext;
+    this.entityFrame = _entityFrame;
+    this.entityFrames = _entityFrames;
+    this.entityFrameSet = _entityFrameSet;
+    this.entityType = _entityType;
+    this.entityMapLayer = _entityMapLayer;
+    this.entityCollisionOffset = _entityCollisionOffset;
+    this.entityCollisionOffsetLeft = _entityCollisionOffsetLeft;
+    this.entityCollisionOffsetTop = _entityCollisionOffsetTop;
+    this.entityCollisionOffsetRight = _entityCollisionOffsetRight;
+    this.entityCollisionOffsetBottom = _entityCollisionOffsetBottom;
+    this.entityCollide = _entityCollide;
+    this.entityApplyGravity = _entityApplyGravity;
+    this.entityVisible = _entityVisible;
+
+    this.entityFrame = _entityFrame;
+    this.entitySequence = _entitySequence;
+    this.entitySequences = _entitySequences;
+    this.entityFrames = _entityFrames;
+
+    this.mapColumns = _mapColumns;
+    this.mapCreate = _mapCreate;
+    this.mapLoad = _mapLoad;
+    this.mapDraw = _mapDraw;
+    this.mapSave = _mapSave;
+    this.mapIsometric = _mapIsometric;
+    this.mapLayerAdd = _mapLayerAdd;
+    this.mapLayerInsert = _mapLayerInsert;
+    this.mapLayerRemove = _mapLayerRemove;
+    this.mapLayerInit = _mapLayerInit;
+    this.mapLayerVisible = _mapLayerVisible;
+    this.mapLayers = _mapLayers;
+    this.mapResize = _mapResize;
+    this.mapRows = _mapRows;
+    this.mapTile = _mapTile;
+
+    this.tilesetColumns = _tilesetColumns;
+    this.tilesetCreate = _tilesetCreate;
+    this.tilesetFilename = _tilesetFilename;
+    this.tilesetHeight = _tilesetHeight;
+    this.tilesetImage = _tilesetImage;
+    this.tilesetPos = _tilesetPos;
+    this.tilesetRows = _tilesetRows;
+    this.tilesetWidth = _tilesetWidth;
+    this.tilesetReplaceImage = _tilesetReplaceImage;
+    this.tilesetAnimationCreate = _tilesetAnimationCreate;
+    this.tilesetAnimationAdd = _tilesetAnimationAdd;
+    this.tilesetAnimationRemove = _tilesetAnimationRemove;
+    this.tilesetAnimationFrames = _tilesetAnimationFrames;
+    this.tilesetAnimationSpeed = _tilesetAnimationSpeed;
+
+    this.fontCharSpacing = _fontCharSpacing;
+    this.fontCreate = _fontCreate;
+    this.fontHeight = _fontHeight;
+    this.fontLineSpacing = _fontLineSpacing;
+    this.fontWidth = _fontWidth;
+    this.drawText = _drawText;
+
+    this.deviceInputTest = _deviceInputTest;
+    this.keyInput = _keyInput;
+    this.keyButtonName = _keyButtonName;
+    this.mouseX = _mouseX;
+    this.mouseY = _mouseY;
+    this.mouseButton = _mouseButton;
+    this.mouseWheel = _mouseWheel;
+    this._mouseInput = _mouseInput;
+    this.touchX = _touchX;
+    this.touchY = _touchY
+    this._enableTouchMouse = _enableTouchMouse;
+    this._touchInput = _touchInput;
+
+    this.debug = _debug;
+    this.debugFont = _debugFont;
+    this.debugEntityBorderColor = _debugEntityBorderColor;
+    this.debugEntityCollisionColor = _debugEntityCollisionColor;
+    this.debugTileBorderColor = _debugTileBorderColor;
+
+    this.fullScreen = _fullScreen;
+    this.keyDown = _keyDown;
+
+    this.init = _init;
+    this.reset = _reset;
+    this.sleep = _sleep;
+    this.registerGameEvents = _registerGameEvents;
+    this.resourcesLoaded = _resourcesLoaded;
+    
+    this.sceneActive = function() { return _scene.active; }
+
+    // constants
+    this.TRUE = -1;
+    this.FALSE = 0;
+
+    this.EVENT_INIT = 1;
+    this.EVENT_UPDATE = 2;
+    this.EVENT_DRAWBG = 3;
+    this.EVENT_DRAWMAP = 4;
+    this.EVENT_DRAWSCREEN = 5;
+    this.EVENT_MOUSEINPUT = 6;
+    this.EVENT_PAINTBEFORE = 7;
+    this.EVENT_PAINTAFTER = 8;
+    this.EVENT_COLLISION_TILE = 9;
+    this.EVENT_COLLISION_ENTITY = 10;
+    this.EVENT_PLAYER_ACTION = 11;
+    this.EVENT_ANIMATE_COMPLETE = 12;
+    this.EVENT_KEY_TYPED = 13; // New event for virtual keyboard input
+    this.EVENT_KEY_DOWN = 14; // New event for key down
+    this.EVENT_KEY_UP = 15; // New event for key up
+
+
+    this.ANIMATE_LOOP = 0;
+    this.ANIMATE_SINGLE = 1;
+
+    this.BG_STRETCH = 1;
+    this.BG_SCROLL = 2;
+    this.BG_WRAP = 3;
+
+    this.KEY_ESC = 'Escape';
+    this.KEY_1 = 'Digit1';
+    this.KEY_2 = 'Digit2';
+    this.KEY_3 = 'Digit3';
+    this.KEY_4 = 'Digit4';
+    this.KEY_5 = 'Digit5';
+    this.KEY_6 = 'Digit6';
+    this.KEY_7 = 'Digit7';
+    this.KEY_8 = 'Digit8';
+    this.KEY_9 = 'Digit9';
+    this.KEY_0 = 'Digit0';
+    this.KEY_DASH = 'Minus';
+    this.KEY_EQUALS = 'Equal';
+    this.KEY_BACKSPACE = 'Backspace';
+    this.KEY_TAB = 'Tab';
+    this.KEY_Q = 'KeyQ';
+    this.KEY_W = 'KeyW';
+    this.KEY_E = 'KeyE';
+    this.KEY_R = 'KeyR';
+    this.KEY_T = 'KeyT';
+    this.KEY_Y = 'KeyY';
+    this.KEY_U = 'KeyU';
+    this.KEY_I = 'KeyI';
+    this.KEY_O = 'KeyO';
+    this.KEY_P = 'KeyP';
+    this.KEY_LBRACKET = 'BracketLeft';
+    this.KEY_RBRACKET = 'BracketRight';
+    this.KEY_ENTER = 'Enter';
+    this.KEY_LCTRL = 'ControlLeft';
+    this.KEY_A = 'KeyA';
+    this.KEY_S = 'KeyS';
+    this.KEY_D = 'KeyD';
+    this.KEY_F = 'KeyF';
+    this.KEY_G = 'KeyG';
+    this.KEY_H = 'KeyH';
+    this.KEY_J = 'KeyJ';
+    this.KEY_K = 'KeyK';
+    this.KEY_L = 'KeyL';
+    this.KEY_SEMICOLON = 'Semicolon';
+    this.KEY_QUOTE = 'Quote';
+    this.KEY_BACKQUOTE = 'Backquote';
+    this.KEY_LSHIFT = 'ShiftLeft';
+    this.KEY_BACKSLASH = 'Backslash';
+    this.KEY_Z = 'KeyZ';
+    this.KEY_X = 'KeyX';
+    this.KEY_C = 'KeyC';
+    this.KEY_V = 'KeyV';
+    this.KEY_B = 'KeyB';
+    this.KEY_N = 'KeyN';
+    this.KEY_M = 'KeyM';
+    this.KEY_COMMA = 'Comma';
+    this.KEY_PERIOD = 'Period';
+    this.KEY_SLASH = 'Slash';
+    this.KEY_RSHIFT = 'ShiftRight';
+    this.KEY_NUMPAD_MULTIPLY = 'NumpadMultiply';
+    this.KEY_SPACEBAR = 'Space';
+    this.KEY_CAPSLOCK = 'CapsLock';
+    this.KEY_F1 = 'F1';
+    this.KEY_F2 = 'F2';
+    this.KEY_F3 = 'F3';
+    this.KEY_F4 = 'F4';
+    this.KEY_F5 = 'F5';
+    this.KEY_F6 = 'F6';
+    this.KEY_F7 = 'F7';
+    this.KEY_F8 = 'F8';
+    this.KEY_F9 = 'F9';
+    this.KEY_F10 = 'F10';
+    this.KEY_PAUSE = 'Pause';
+    this.KEY_SCRLK = 'ScrollLock';
+    this.KEY_NUMPAD_7 = 'Numpad7';
+    this.KEY_NUMPAD_8 = 'Numpad8';
+    this.KEY_NUMPAD_9 = 'Numpad9';
+    this.KEY_NUMPAD_MINUS = 'NumpadSubtract';
+    this.KEY_NUMPAD_4 = 'Numpad4';
+    this.KEY_NUMPAD_5 = 'Numpad5';
+    this.KEY_NUMPAD_6 = 'Numpad6';
+    this.KEY_NUMPAD_PLUS = 'NumpadAdd';
+    this.KEY_NUMPAD_1 = 'Numpad1';
+    this.KEY_NUMPAD_2 = 'Numpad2';
+    this.KEY_NUMPAD_3 = 'Numpad3';
+    this.KEY_NUMPAD_0 = 'Numpad0';
+    this.KEY_NUMPAD_PERIOD = 'NumpadDecimal';
+    this.KEY_F11 = 'F11';
+    this.KEY_F12 = 'F12';
+    this.KEY_NUMPAD_ENTER = 'NumpadEnter';
+    this.KEY_RCTRL = 'ControlRight';
+    this.KEY_NUMPAD_DIVIDE = 'NumpadDivide';
+    this.KEY_NUMLOCK = 'NumLock';
+    this.KEY_HOME = 'Home';
+    this.KEY_UP = 'ArrowUp';
+    this.KEY_PAGEUP = 'PageUp';
+    this.KEY_LEFT = 'ArrowLeft';
+    this.KEY_RIGHT = 'ArrowRight';
+    this.KEY_END = 'End';
+    this.KEY_DOWN = 'ArrowDown';
+    this.KEY_PAGEDOWN = 'PageDown';
+    this.KEY_INSERT = 'Insert';
+    this.KEY_DELETE = 'Delete';
+    this.KEY_LWIN = 'MetaLeft';
+    this.KEY_RWIN = 'MetaRight';
+    this.KEY_MENU = 'ContextMenu';
+    this.KEY_LALT = "AltLeft";
+    this.KEY_RALT = "AltRight";
+
+    this.ACTION_MOVE_LEFT = 1;
+    this.ACTION_MOVE_RIGHT = 2;
+    this.ACTION_MOVE_UP = 3;
+    this.ACTION_MOVE_DOWN = 4;
+    this.ACTION_JUMP = 5;
+    this.ACTION_JUMP_RIGHT = 6;
+    this.ACTION_JUMP_LEFT = 7;
+
+    this.SCENE_FOLLOW_NONE = 0;
+    this.SCENE_FOLLOW_ENTITY_CENTER = 1;
+    this.SCENE_FOLLOW_ENTITY_CENTER_X = 2;
+    this.SCENE_FOLLOW_ENTITY_CENTER_Y = 3;
+    this.SCENE_FOLLOW_ENTITY_CENTER_X_POS = 4;
+    this.SCENE_FOLLOW_ENTITY_CENTER_X_NEG = 5;
+
+    this.SCENE_CONSTRAIN_NONE = 0;
+    this.SCENE_CONSTRAIN_TO_MAP = 1;
+
+    this.FONT_DEFAULT = 1;
+    this.FONT_DEFAULT_BLACK = 2;
+
+    this.DEVICE_KEYBOARD = 1;
+    this.DEVICE_MOUSE = 2;
+    this.DEVICE_CONTROLLER = 3;
+    this.DEVICE_BUTTON = 4;
+    this.DEVICE_AXIS = 5;
+    this.DEVICE_WHEEL = 6;
+
+    this.TYPE_ENTITY = 1;
+    this.TYPE_FONT = 2;
+
+    this.CR = "\r";
+    this.LF = "\n";
+    this.CRLF = "\r\n"
+
+    // Array handling methods
+    this.initArray = function(dimensions, obj) {
+        var a = {};
+        if (dimensions && dimensions.length > 0) {
+            a._dimensions = dimensions;
+        }
+        else {
+            a._dimensions = [{l:0,u:1}];
+        }
+        a._newObj = { value: obj };
+        return a;
+    };
+
+    this.resizeArray = function(a, dimensions, obj, preserve) {
+       if (!preserve) {
+            var props = Object.getOwnPropertyNames(a);
+            for (var i = 0; i < props.length; i++) {
+                if (props[i] != "_newObj") {
+                    delete a[props[i]];
+                }
+            }
+        }
+        if (dimensions && dimensions.length > 0) {
+            a._dimensions = dimensions;
+        }
+        else {
+            a._dimensions = [{l:0,u:1}];
+        }
+    };
+
+    this.arrayValue = function(a, indexes) {
+        var value = a;
+        for (var i=0; i < indexes.length; i++) {
+            if (value[indexes[i]] == undefined) {
+                if (i == indexes.length-1) {
+                    value[indexes[i]] = JSON.parse(JSON.stringify(a._newObj));
+                }
+                else {
+                    value[indexes[i]] = {};
+                }
+            }
+            value = value[indexes[i]];
+        }
+
+        return value;
+    };
+
+    // ----------------------------------------------------
+    // Hidden input system for mobile soft keyboard
+    // ----------------------------------------------------
+    // The hiddenInput variable is now managed within _showInput to ensure it's created on demand.
+    // The public API for console INPUT is updated to use _showInput and _hideInput.
+
+    this.requestNumberInput = function () {
+        _showInput(); // Call _showInput to make the hidden input visible and focusable
+        var hiddenInput = document.getElementById("gx-hidden-input");
+        if (hiddenInput) {
+            hiddenInput.type = "number";
+            hiddenInput.inputMode = "numeric";
+        }
+    };
+
+    this.requestTextInput = function () {
+        _showInput(); // Call _showInput to make the hidden input visible and focusable
+        var hiddenInput = document.getElementById("gx-hidden-input");
+        if (hiddenInput) {
+            hiddenInput.type = "text";
+            hiddenInput.inputMode = "text";
+        }
+    };
+
+    this.showInput = _showInput; // Expose _showInput as a public method
+    this.hideInput = _hideInput; // Expose _hideInput as a public method
+
+    // The original _init function is now replaced by the new _init function above.
+    // No need for `var originalInit = this.init; this.init = function() { originalInit(); ... }`
+    // as the new _init directly contains all the necessary logic.
+};    
     
 // Consider moving these to separate optional js files
 var GXSTR = new function() {
@@ -1620,5 +2888,45 @@ var GXSTR = new function() {
         return String(str).replaceAll(findStr, replaceStr);
     }
 };
+
+// IMPORTANT: You need to ensure 'VFS' and 'pako' are defined before this script runs.
+// Example VFS (Virtual File System) and pako (compression library) definitions:
+// These are placeholders. Replace them with your actual VFS and Pako implementations.
+// If you don't use map loading/saving, you can provide minimal dummy implementations
+// to prevent errors, but the functionality won't exist.
+
+// Example VFS (Virtual File System) - You'll need a full implementation for this to work.
+// This is a placeholder to prevent 'VFS is not defined' errors if you don't have one.
+function VFS() {
+    this.rootDirectory = function() { return { name: '/', type: 'directory', children: [] }; };
+    this.getNode = function(path, cwd) {
+        // Minimal placeholder logic for map loading to avoid errors
+        if (path.includes("_gxtmp")) return { name: "_gxtmp", type: 'directory', children: [] };
+        if (path.includes("layer.dat")) return { name: "layer.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
+        if (path.includes("layer-i.dat")) return { name: "layer-i.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
+        if (path.includes("tileset.png")) return { name: "tileset.png", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
+        // For actual files, you'd need a proper VFS implementation
+        return null;
+    };
+    this.createDirectory = function(name, parent) { return { name: name, type: 'directory', children: [] }; };
+    this.createFile = function(name, parent) { return { name: name, type: 'file', data: new ArrayBuffer(0), byteLength: 0 }; };
+    this.writeData = function(file, data, offset = 0) { file.data = data; file.byteLength = data.byteLength; };
+    this.readText = function(file) { return new TextDecoder().decode(file.data); };
+    this.readData = function(file, offset, length) { return file.data.slice(offset, offset + length); };
+    this.textToData = function(text) { return new TextEncoder().encode(text).buffer; };
+    this.removeFile = function(file, parent) { };
+    this.getDataURL = async function(file) { return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; }; // Placeholder
+    this.getParentPath = function(filename) { return ''; };
+    this.getFileName = function(filename) { return filename; };
+    this.fullPath = function(file) { return file.name; };
+}
+
+// Example pako (compression library) - You'll need to include the actual pako library.
+// This is a placeholder to prevent 'pako is not defined' errors.
+const pako = {
+    inflate: function(data) { return data; }, // No actual inflation
+    deflate: function(data) { return data; }  // No actual deflation
+};
+
 
 GX.init();
