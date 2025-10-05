@@ -197,7 +197,13 @@ var QB = new function() {
     var _inkeyBuffer = [];
     var _inkeymap = {};
     var _inkeynp = {};
-    var _inputMode = false;
+    
+        // ---- Hide Mobile Keyboard ----
+        if (typeof mobileInput !== 'undefined' && mobileInput) {
+            mobileInput.blur();
+            mobileInput.style.zIndex = -1;
+        }
+_inputMode = false;
     var _inputCursor = false;
     var _inputTimeout = false;
     var _keyDownMap = {};
@@ -319,7 +325,13 @@ var QB = new function() {
     this.halt = function() {
         _haltedFlag = true;
         _runningFlag = false;
-        _inputMode = false;
+        
+        // ---- Hide Mobile Keyboard ----
+        if (typeof mobileInput !== 'undefined' && mobileInput) {
+            mobileInput.blur();
+            mobileInput.style.zIndex = -1;
+        }
+_inputMode = false;
         if (_player) {
             _player.stop();
         }
@@ -2051,6 +2063,26 @@ var QB = new function() {
         _lastKey = null;
         var str = "";
         _inputMode = true;
+        // ---- Mobile Keyboard Fix (Touch Devices) ----
+        let mobileInput = document.getElementById("mobile-input");
+        if (mobileInput) {
+            mobileInput.value = "";
+            mobileInput.style.zIndex = 9999;
+            mobileInput.style.position = "fixed";
+            mobileInput.focus();
+            // Keep focus to ensure keyboard stays visible
+            mobileInput.addEventListener("blur", () => {
+                if (_inputMode) setTimeout(() => mobileInput.focus(), 100);
+            });
+            mobileInput.oninput = (e) => {
+                const value = e.target.value;
+                if (value.length > 0) {
+                    _lastKey = value.slice(-1);
+                    e.target.value = "";
+                }
+            };
+        }
+
 
         _flushScreenCache(_images[_activeImage]);
 
@@ -2109,7 +2141,13 @@ var QB = new function() {
         }
         if (!_inputMode) { return; }
 
-        _inputMode = false;
+        
+        // ---- Hide Mobile Keyboard ----
+        if (typeof mobileInput !== 'undefined' && mobileInput) {
+            mobileInput.blur();
+            mobileInput.style.zIndex = -1;
+        }
+_inputMode = false;
         toggleCursor(true);
 
         if (!preventNewline) {
@@ -3424,7 +3462,13 @@ var QB = new function() {
         _strokeDrawColor = _color(15);
 
         _lastKey = null;
-        _inputMode = false;
+        
+        // ---- Hide Mobile Keyboard ----
+        if (typeof mobileInput !== 'undefined' && mobileInput) {
+            mobileInput.blur();
+            mobileInput.style.zIndex = -1;
+        }
+_inputMode = false;
         _inkeyBuffer = [];
         _keyHitBuffer = [];
         _keyDownMap = {};
@@ -4606,3 +4650,4 @@ var QB = new function() {
 
     _init();
 }
+
