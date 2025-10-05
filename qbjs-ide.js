@@ -1633,6 +1633,23 @@ var IDE = new function() {
         }
     }
 
+    // Add this to your IDE object in qbjs-ide (1).js
+    this.triggerKeyboard = function(show) {
+        if (typeof GX === 'undefined') return;
+
+        if (show) {
+            // Signal the GX object to show the keyboard
+            if (typeof GX.showKeyboard === 'function') {
+                GX.showKeyboard();
+            }
+        } else {
+            // Signal the GX object to hide the keyboard
+            if (typeof GX.hideKeyboard === 'function') {
+                GX.hideKeyboard();
+            }
+        }
+    };
+
     this.mode = function() { return appMode; }
     this.getErrorLine = _getErrorLine;
     this.runProgram = _runProgram;
