@@ -262,37 +262,47 @@ var IDE = new function() {
             _runProgram();
         }
 
-        // --- mobile keyboard support ---
+        // --- mobile keyboard support FIX ---
         const mobileInput = document.createElement("input");
         mobileInput.type = "text";
-        mobileInput.id = "mobile-console-input"; // Added ID for potential debugging/reference
-        mobileInput.style.position = "absolute";
-        mobileInput.style.opacity = "0";
-        mobileInput.style.height = "1px";
-        mobileInput.style.width = "1px";
-        mobileInput.style.zIndex = "-1";
+        mobileInput.id = "mobile-console-input";
+        mobileInput.autocapitalize = "none";
+        mobileInput.autocomplete = "off";
+        mobileInput.spellcheck = false;
+        mobileInput.style.position = "fixed";
+        mobileInput.style.bottom = "10px";
+        mobileInput.style.left = "50%";
+        mobileInput.style.transform = "translateX(-50%)";
+        mobileInput.style.opacity = "0.01"; // nearly invisible, but still focusable
+        mobileInput.style.height = "30px";
+        mobileInput.style.width = "50%";
+        mobileInput.style.zIndex = "9999";
+        mobileInput.style.border = "none";
+        mobileInput.style.background = "transparent";
         document.body.appendChild(mobileInput);
 
         _e.outputContainer.addEventListener("click", () => {
-            if (/Mobi|Android/i.test(navigator.userAgent)) {
+            if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+                mobileInput.style.opacity = "0.01";
                 mobileInput.focus();
+                setTimeout(() => {
+                    mobileInput.style.opacity = "0";
+                }, 1000);
             }
         });
 
         mobileInput.addEventListener("input", (e) => {
             const val = e.target.value;
             if (val.length > 0) {
-                // Assuming QB.keyPress is the function to handle console input
-                // If not, replace with the correct function for your console.
                 if (typeof QB !== 'undefined' && typeof QB.keyPress === 'function') {
-                    QB.keyPress(val); 
+                    QB.keyPress(val);
                 } else {
                     console.warn("QB.keyPress function not found. Mobile input might not be handled correctly.");
                 }
-                e.target.value = ""; // clear after each keystroke
+                e.target.value = "";
             }
         });
-        // End mobile keyboard support
+        // --- end fix ---
     }    
 
     function _getErrorLine(error, stackDepth) {
@@ -1687,3 +1697,4 @@ var IDE = new function() {
     this.changeKeyMap = _changeKeyMap;
     this.toggleConsolePersistence = _toggleConsolePersistence;
 };
+
