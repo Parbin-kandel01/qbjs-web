@@ -132,19 +132,12 @@ var GX = new function() {
             _canvas.id = "gx-canvas";
             document.getElementById("gx-container").appendChild(_canvas);
 
-            /* ---------- REPLACEMENT: in _sceneCreate() after creating _canvas ---------- */
-            /* IMPORTANT: replace the existing touch listeners which call event.preventDefault()
-            with these safer handlers that rely on touch-action: none instead. */
-
-            _canvas.style.touchAction = 'none';    // prevents scroll/pan without using preventDefault
-            _canvas.setAttribute('tabindex','0');  // allow focus if needed
-
             _canvas.addEventListener("mousemove", function(event) {
                 _mousePos.x = event.offsetX;
                 _mousePos.y = event.offsetY;
                 _mouseInputFlag = true;
             });
-
+    
             _canvas.addEventListener("mousedown", function(event) {
                 event.preventDefault();
                 if (event.button == 0) { _mouseButtons[0] = -1; }
@@ -152,7 +145,7 @@ var GX = new function() {
                 else if (event.button == 2) { _mouseButtons[1] = -1; }
                 _mouseInputFlag = true;
             });
-
+    
             _canvas.addEventListener("mouseup", function(event) {
                 if (event.button == 0) { _mouseButtons[0] = 0; }
                 else if (event.button == 1) { _mouseButtons[2] = 0; }
@@ -173,26 +166,25 @@ var GX = new function() {
                 event.preventDefault();
             });
 
-            // touch handlers: DO NOT call preventDefault() here
             _canvas.addEventListener("touchmove", function(event) {
-                // For touchmove we *may* still want to prevent default scroll, but because
-                // touch-action: none is set on the canvas that is not needed.
+                event.preventDefault();
                 var touch = event.touches[0];
                 var rect = event.target.getBoundingClientRect();
-                _touchPos.x = touch.pageX - rect.left;
-                _touchPos.y = touch.pageY - rect.top;
+                _touchPos.x = touch.pageX - rect.x;
+                _touchPos.y = touch.pageY - rect.y;
                 _touchInputFlag = true;
                 if (_bindTouchToMouse) {
                     _mousePos = _touchPos;
                     _mouseInputFlag = true;
                 }
             });
-
+    
             _canvas.addEventListener("touchstart", function(event) {
+                event.preventDefault();
                 var touch = event.touches[0];
                 var rect = event.target.getBoundingClientRect();
-                _touchPos.x = touch.pageX - rect.left;
-                _touchPos.y = touch.pageY - rect.top;
+                _touchPos.x = touch.pageX - rect.x;
+                _touchPos.y = touch.pageY - rect.y;
                 _touchInputFlag = true;
                 if (_bindTouchToMouse) {
                     _mouseButtons[0] = -1;
@@ -200,24 +192,14 @@ var GX = new function() {
                     _mousePos = _touchPos;
                 }
             });
-
+    
             _canvas.addEventListener("touchend", function(event) {
-                // changedTouches contains the final touch coordinates
-                var rect = event.target.getBoundingClientRect();
-                if (event.changedTouches && event.changedTouches.length) {
-                    var touch = event.changedTouches[0];
-                    _touchPos.x = touch.pageX - rect.left;
-                    _touchPos.y = touch.pageY - rect.top;
-                }
+                event.preventDefault();
                 _touchInputFlag = false;
                 if (_bindTouchToMouse) {
                     _mouseButtons[0] = 0;
                     _mouseInputFlag = true;
                 }
-                // NOTE: if you want to show the keyboard on tap, call GX.showInput(_touchPos.x + rect.left, _touchPos.y + rect.top)
-                // from your game logic (or enable the code below to open input automatically on tap)
-                // Example auto-open (commented out to avoid always opening keyboard on every tap):
-                // setTimeout(function(){ GX.showInput(_touchPos.x + rect.left, _touchPos.y + rect.top); }, 0);
             });
 
             document.addEventListener("fullscreenchange", function(event) {
@@ -413,7 +395,7 @@ var GX = new function() {
                 if (sx < 0) { sx = 0; }
             }
 
-            sy = _scene.y;
+            sy = GX.sceneY();
             if (sy < 0) {
                 sy = 0;
             } else if (sy + GX.sceneHeight() > mheight) {
@@ -1231,7 +1213,7 @@ var GX = new function() {
         // write the tileset animations data
         writeInt(fh, _tileset_animations.length);
         for (var i=0; i < 3; i++) { writeInt(fh, 0); }
-        for (var i=1; i <= asize; i++) {
+        for (var i=1; i <= _tileset_animations.length; i++) {
             animations.push([readInt(fh), readInt(fh), readInt(fh)]);
         }
     
@@ -1253,28 +1235,25 @@ var GX = new function() {
             }
         }
         
-        function readInt(fh) {
-            var data = vfs.readData(fh.file, fh.pos, 2);
-            var value = (new DataView(data)).getInt16(0, true);
-            fh.pos += data.byteLength;
-            return value;
+        function writeInt(fh, value) {
+            var data = new Int16Array([value]).buffer;
+            vfs.writeData(fh.file, data, fh.pos);
+            fh.pos = fh.pos + data.byteLength
         }
         
-        function readLong(fh) {
-            var data = vfs.readData(fh.file, fh.pos, 4);
-            var value = (new DataView(data)).getInt32(0, true);
-            fh.pos += data.byteLength;
-            return value;
+        function writeLong(fh, value) {
+            var data = new Int32Array([value]).buffer; 
+            vfs.writeData(fh.file, data, fh.pos);
+            fh.pos = fh.pos + data.byteLength
         }
         
-        function readString(fh) {
-            var slen = readLong(fh);
-            var data = vfs.readData(fh.file, fh.pos, slen)
-            var value = String.fromCharCode.apply(null, new Uint8Array(data))
-            fh.pos += data.byteLength;
-            return value;
+        function writeString(fh, value) {
+            var slen = value.length;
+            writeLong(fh, slen);
+            var data = vfs.textToData(value);
+            vfs.writeData(fh.file, data, fh.pos);
+            fh.pos = fh.pos + data.byteLength
         }
-        _map_loading = false;
     }
     
     function _getJSON(url) {
@@ -2278,155 +2257,57 @@ var GX = new function() {
         return new Promise(resolve => setTimeout(resolve, ms));
     };
 
-    /* ---------- REPLACEMENT: improved _showInput / _hideInput  ---------- */
-    function _showInput(cx, cy) {
-        // cx, cy are optional coordinates (page coordinates relative to canvas) - used to position input
-        var hiddenInput = document.getElementById("gx-hidden-input");
-        if (!hiddenInput) {
-            hiddenInput = document.createElement('input');
-            hiddenInput.id = "gx-hidden-input";
-            hiddenInput.type = "text";
-            hiddenInput.autocapitalize = "off";
-            hiddenInput.autocomplete = "off";
-            hiddenInput.autocorrect = "off";
-            hiddenInput.spellcheck = false;
-            hiddenInput.setAttribute('inputmode','text'); // hints mobile keyboards
-            // style such that input is focusable and inside viewport but visually invisible
-            Object.assign(hiddenInput.style, {
-                position: 'absolute',
-                zIndex: 2147483647,
-                opacity: '0.01',    // NOT 0 — some browsers ignore fully-transparent elements
-                left: '0px',
-                top: '0px',
-                width: '1px',
-                height: '1px',
-                border: 'none',
-                padding: '0',
-                margin: '0',
-                background: 'transparent',
-                outline: 'none'
-            });
-            document.body.appendChild(hiddenInput);
-
-            // forward keydown / keyup to game events
-            hiddenInput.addEventListener('keydown', function(e) {
-                if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_DOWN, key: e.key });
-                // allow navigation keys etc to behave normally (don't prevent)
-            }, false);
-            hiddenInput.addEventListener('keyup', function(e) {
-                if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_UP, key: e.key });
-            }, false);
-
-            // input: commit typed characters (handles many simple cases)
-            hiddenInput.addEventListener('input', function(e) {
-                var v = e.target.value;
-                if (v && v.length > 0) {
-                    if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_TYPED, key: v });
-                    e.target.value = "";
-                }
-            });
-
-            // composition events: handle IME properly (CJK, Devanagari, etc.)
-            hiddenInput.addEventListener('compositionend', function(e) {
-                if (_onGameEvent) _onGameEvent({ event: GX.EVENT_KEY_TYPED, key: e.data });
-                hiddenInput.value = "";
-            });
-
-            // when keyboard is dismissed (blur) hide the input again
-            hiddenInput.addEventListener('blur', function(e) {
-                hiddenInput.style.display = 'none';
-                // optional notification: keyboard dismissed
-                if (_onGameEvent) { _onGameEvent({ event: 'GX_EVENT_KEYBOARD_DISMISSED' }); }
-            });
-        }
-
-        // make sure it's visible and placed inside viewport (use provided coords if any)
-        hiddenInput.style.display = 'block';
-        if (typeof cx === 'number' && typeof cy === 'number') {
-            // try to position input near touch (use small offset so it's inside viewport)
-            hiddenInput.style.left = Math.max(0, Math.floor(cx)) + 'px';
-            hiddenInput.style.top = Math.max(0, Math.floor(cy)) + 'px';
-        } else {
-            // default position (top-left)
-            hiddenInput.style.left = '4px';
-            hiddenInput.style.top = '4px';
-        }
-
-        // ensure the DOM has updated and then focus (setTimeout improves reliability on Android)
-        // try immediate focus first (should work in most modern browsers)
-        try { hiddenInput.focus(); } catch (ex) {}
-        // fallback: re-focus shortly after to cover browser timing quirks
-        setTimeout(function() {
-            try { hiddenInput.focus(); } catch (ex) {}
-        }, 50);
-    }
-
-    function _hideInput() {
-        var hiddenInput = document.getElementById("gx-hidden-input");
-        if (hiddenInput) {
-            try { hiddenInput.blur(); } catch (ex) {}
-            hiddenInput.style.display = 'none';
-        }
-    }
-
-    /* ---------- REPLACEMENT: updated _init() mobile keyboard handling ---------- */
     function _init() {
         _vfsCwd = _vfs.rootDirectory();
 
         _fontCreateDefault(GX.FONT_DEFAULT);
         _fontCreateDefault(GX.FONT_DEFAULT_BLACK);
 
+        addEventListener("keyup", function(event) { 
+            const activeElement = document.activeElement;
+            const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
+
+            // Allow the hidden mobile input to handle its own keyup/keydown if it's focused
+            if (activeElement && activeElement.id === 'gx-hidden-input') {
+                // Do nothing, let the input event handle it
+                return;
+            }
+
+            if (_scene.active && !isTypingIntoInput) {
+                event.preventDefault();
+            }
+            if (!isTypingIntoInput) {
+                _pressedKeys[event.code] = false;
+            }
+        });
+        addEventListener("keydown", function(event) { 
+            const activeElement = document.activeElement;
+            const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
+
+            // Allow the hidden mobile input to handle its own keyup/keydown if it's focused
+            if (activeElement && activeElement.id === 'gx-hidden-input') {
+                // Do nothing, let the input event handle it
+                return;
+            }
+
+            if (_scene.active && !isTypingIntoInput) {
+                event.preventDefault();
+            }
+            if (!isTypingIntoInput) {
+                _pressedKeys[event.code] = true;
+            }
+        });
+
         _isMobileDevice = /Mobi|Android/i.test(navigator.userAgent);
-        window.addEventListener("resize", function() {
-            // Optional: Handle window resize event if needed
-        });
-
-        // Initialize keyboard input
-        document.addEventListener("keydown", function(event) {
-            // keep existing behavior: ignore global handlers when our hidden input is focused
-            if (document.activeElement && document.activeElement.id == "gx-hidden-input") { return; }
-            if (event.key != undefined) {
-                _pressedKeys[event.key] = true;
-            }
-            if (_onGameEvent) {
-                var e = {};
-                e.event = GX.EVENT_KEY_DOWN;
-                e.key = event.key;
-                _onGameEvent(e);
-            }
-        });
-
-        document.addEventListener("keyup", function(event) {
-            if (document.activeElement && document.activeElement.id == "gx-hidden-input") { return; }
-            if (event.key != undefined) {
-                _pressedKeys[event.key] = false;
-            }
-            if (_onGameEvent) {
-                var e = {};
-                e.event = GX.EVENT_KEY_UP;
-                e.key = event.key;
-                _onGameEvent(e);
-            }
-        });
-
-        // Ensure the hidden input exists (created by _showInput on demand); don't require markup.
-        // This avoids "not found" warnings and centralizes input behavior.
-        (function ensureHiddenInputExists() {
-            var hiddenInput = document.getElementById("gx-hidden-input");
-            if (!hiddenInput) {
-                // create a minimal one; _showInput will fully initialize the handlers
-                hiddenInput = document.createElement('input');
-                hiddenInput.id = "gx-hidden-input";
-                hiddenInput.type = "text";
-                hiddenInput.style.display = 'none';
-                document.body.appendChild(hiddenInput);
-            }
-        })();
-
         if (_isMobileDevice) {
             console.log("Mobile device detected. Initializing touch controls.");
-            // The touchstart listener on document.body is removed as the new hidden input logic handles focus.
-            // The touch control buttons setup remains as it's for game-specific virtual buttons.
+            document.body.addEventListener('touchstart', function(e) {
+                const activeElement = document.activeElement;
+                if (activeElement && activeElement.tagName !== 'BODY' &&
+                    activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+                    activeElement.blur();
+                }
+            }, { passive: false });
 
             const setupTouchButton = (id, controlKey) => {
                 const button = document.getElementById(id);
@@ -2645,9 +2526,6 @@ var GX = new function() {
     this.EVENT_PLAYER_ACTION = 11;
     this.EVENT_ANIMATE_COMPLETE = 12;
     this.EVENT_KEY_TYPED = 13; // New event for virtual keyboard input
-    this.EVENT_KEY_DOWN = 14; // New event for key down
-    this.EVENT_KEY_UP = 15; // New event for key up
-
 
     this.ANIMATE_LOOP = 0;
     this.ANIMATE_SINGLE = 1;
@@ -2845,33 +2723,77 @@ var GX = new function() {
     // ----------------------------------------------------
     // Hidden input system for mobile soft keyboard
     // ----------------------------------------------------
-    // The hiddenInput variable is now managed within _showInput to ensure it's created on demand.
-    // The public API for console INPUT is updated to use _showInput and _hideInput.
+    var hiddenInput = null; // Initialize as null, will be assigned in _init
 
-    this.requestNumberInput = function () {
-        _showInput(); // Call _showInput to make the hidden input visible and focusable
-        var hiddenInput = document.getElementById("gx-hidden-input");
-        if (hiddenInput) {
+    // Internal function: set mode
+    function GXSetInputMode(mode) {
+        if (!hiddenInput) {
+            console.warn("GX: hiddenInput not initialized. Call GX.init() first.");
+            return;
+        }
+        if (mode === "number") {
             hiddenInput.type = "number";
             hiddenInput.inputMode = "numeric";
-        }
-    };
-
-    this.requestTextInput = function () {
-        _showInput(); // Call _showInput to make the hidden input visible and focusable
-        var hiddenInput = document.getElementById("gx-hidden-input");
-        if (hiddenInput) {
+        } else {
             hiddenInput.type = "text";
             hiddenInput.inputMode = "text";
         }
+        hiddenInput.focus(); // ensure keyboard appears
+    }
+
+    // Public API for console INPUT
+    this.requestNumberInput = function () {
+        GXSetInputMode("number");
     };
 
-    this.showInput = _showInput; // Expose _showInput as a public method
-    this.hideInput = _hideInput; // Expose _hideInput as a public method
+    this.requestTextInput = function () {
+        GXSetInputMode("text");
+    };
 
-    // The original _init function is now replaced by the new _init function above.
-    // No need for `var originalInit = this.init; this.init = function() { originalInit(); ... }`
-    // as the new _init directly contains all the necessary logic.
+    // Add this to your _init function to set up the hidden input listeners
+    var originalInit = this.init;
+    this.init = function() {
+        originalInit(); // Call the original _init function first
+
+        hiddenInput = document.getElementById("gx-hidden-input");
+        if (hiddenInput) {
+            // When canvas is touched, focus the hidden input to bring up the keyboard
+            // This is now handled by the canvas's touchstart event listener already present
+            // in _sceneCreate, which calls _mouseButtons[0] = -1 and _mouseInputFlag = true.
+            // We need to ensure that if a touch happens, the hiddenInput gets focus.
+            // The existing canvas touchstart prevents default, so we need to explicitly focus.
+            // However, directly focusing on touchstart might interfere with game input.
+            // A better approach is to only focus when an input is *requested* by the game.
+            // So, the `GX.requestNumberInput()` and `GX.requestTextInput()` functions will handle focusing.
+
+            // Listen for actual text typed
+            hiddenInput.addEventListener("input", (e) => {
+                const value = e.target.value;
+                if (value.length > 0) {
+                    const char = value[value.length - 1]; // last typed character
+
+                    // Send character to GX game event system
+                    if (_onGameEvent) {
+                        _onGameEvent({
+                            event: GX.EVENT_KEY_TYPED,
+                            key: char
+                        });
+                    }
+
+                    e.target.value = ""; // reset so only new chars are sent
+                }
+            });
+
+            // Handle blur event for the hidden input
+            hiddenInput.addEventListener("blur", () => {
+                // Optional: You might want to send an event to your game when the keyboard is dismissed
+                // e.g., _onGameEvent({ event: "KEYBOARD_DISMISSED" });
+            });
+
+        } else {
+            console.warn("GX: Hidden input element with ID 'gx-hidden-input' not found. Mobile virtual keyboard input will not work.");
+        }
+    };
 };    
     
 // Consider moving these to separate optional js files
@@ -2888,45 +2810,5 @@ var GXSTR = new function() {
         return String(str).replaceAll(findStr, replaceStr);
     }
 };
-
-// IMPORTANT: You need to ensure 'VFS' and 'pako' are defined before this script runs.
-// Example VFS (Virtual File System) and pako (compression library) definitions:
-// These are placeholders. Replace them with your actual VFS and Pako implementations.
-// If you don't use map loading/saving, you can provide minimal dummy implementations
-// to prevent errors, but the functionality won't exist.
-
-// Example VFS (Virtual File System) - You'll need a full implementation for this to work.
-// This is a placeholder to prevent 'VFS is not defined' errors if you don't have one.
-function VFS() {
-    this.rootDirectory = function() { return { name: '/', type: 'directory', children: [] }; };
-    this.getNode = function(path, cwd) {
-        // Minimal placeholder logic for map loading to avoid errors
-        if (path.includes("_gxtmp")) return { name: "_gxtmp", type: 'directory', children: [] };
-        if (path.includes("layer.dat")) return { name: "layer.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
-        if (path.includes("layer-i.dat")) return { name: "layer-i.dat", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
-        if (path.includes("tileset.png")) return { name: "tileset.png", type: 'file', data: new ArrayBuffer(0), byteLength: 0 };
-        // For actual files, you'd need a proper VFS implementation
-        return null;
-    };
-    this.createDirectory = function(name, parent) { return { name: name, type: 'directory', children: [] }; };
-    this.createFile = function(name, parent) { return { name: name, type: 'file', data: new ArrayBuffer(0), byteLength: 0 }; };
-    this.writeData = function(file, data, offset = 0) { file.data = data; file.byteLength = data.byteLength; };
-    this.readText = function(file) { return new TextDecoder().decode(file.data); };
-    this.readData = function(file, offset, length) { return file.data.slice(offset, offset + length); };
-    this.textToData = function(text) { return new TextEncoder().encode(text).buffer; };
-    this.removeFile = function(file, parent) { };
-    this.getDataURL = async function(file) { return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; }; // Placeholder
-    this.getParentPath = function(filename) { return ''; };
-    this.getFileName = function(filename) { return filename; };
-    this.fullPath = function(file) { return file.name; };
-}
-
-// Example pako (compression library) - You'll need to include the actual pako library.
-// This is a placeholder to prevent 'pako is not defined' errors.
-const pako = {
-    inflate: function(data) { return data; }, // No actual inflation
-    deflate: function(data) { return data; }  // No actual deflation
-};
-
 
 GX.init();
