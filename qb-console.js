@@ -48,7 +48,7 @@ function _QB() {
     // ------------------------
     // Input handling (browser only) - FIXED for default prompt and simplified keyboard
     // ------------------------
-    async function func_Input(promptText) {
+    async function func_Input(promptText, isMultiline) {
         // Browser environment logic only
         return new Promise(resolve => {
             
@@ -59,7 +59,7 @@ function _QB() {
 
             // Console Visibility: Show IDE console before input (Crucial for GX mode)
             if (typeof IDE !== 'undefined' && typeof IDE.showConsole === 'function') { 
-                IDE.showConsole(); 
+                IDE.showConsole(true); 
             }
 
             // Ensure console area
@@ -88,7 +88,7 @@ function _QB() {
             // Create or reuse input
             let inp = document.getElementById("_qb_console_input");
             if (!inp) {
-                inp = document.createElement("input");
+                inp = document.createElement(isMultiline ? "textarea" : "input");
                 inp.id = "_qb_console_input";
                 inp.type = "text";
                 inp.style.width = "100%";
@@ -104,11 +104,15 @@ function _QB() {
                 inp.autocapitalize = "none";
                 inp.autocorrect = "off";
                 inp.spellcheck = false;
+                
+                if (isMultiline) {
+                    inp.style.height = "80px";
+                    inp.style.resize = "vertical";
+                }
+                
                 consoleArea.appendChild(inp);
             }
             
-            // --- Removed: "Tap to Enter" button and hidden keyboard fallback ---
-
             // --- KEYBOARD ACTIVATION (Aggressive Direct Focus) ---
             inp.value = "";
             inp.style.display = "block"; 
@@ -121,40 +125,62 @@ function _QB() {
             // --------------------------------------------------------
 
             const onKeyDown = (e) => {
-                if (e.key === "Enter") {
+                if (e.key === "Enter" && !isMultiline) {
                     e.preventDefault();
-                    const val = inp.value;
-                    const outLine = document.createElement("div");
-                    outLine.textContent = val;
-                    consoleArea.appendChild(outLine);
-                    inp.value = "";
-                    inp.blur();
-                    
-                    // Cleanup: Hide console after input is done
-                    if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') { 
-                        IDE.hideConsole(); 
-                    }
-                    
-                    inp.removeEventListener("keydown", onKeyDown);
-                    resolve(val);
+                    submitInput();
+                } else if (e.key === "Enter" && e.ctrlKey && isMultiline) {
+                    e.preventDefault();
+                    submitInput();
                 } else if (e.key === "Escape") {
                     e.preventDefault();
-                    inp.value = "";
-                    inp.blur();
-                    
-                    // Cleanup: Hide console after input is done
-                    if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') { 
-                        IDE.hideConsole(); 
-                    }
-                    
-                    inp.removeEventListener("keydown", onKeyDown);
-                    resolve("");
+                    cancelInput();
                 }
             };
+
+            function submitInput() {
+                const val = inp.value;
+                const outLine = document.createElement("div");
+                outLine.textContent = val;
+                consoleArea.appendChild(outLine);
+                inp.value = "";
+                inp.blur();
+                
+                // Cleanup: Remove input element
+                inp.remove();
+                
+                // Let IDE handle console visibility
+                if (typeof IDE !== 'undefined' && typeof IDE.showConsole === 'function') { 
+                    // Don't call hideConsole - let IDE manage visibility
+                }
+                
+                inp.removeEventListener("keydown", onKeyDown);
+                resolve(val);
+            }
+
+            function cancelInput() {
+                inp.value = "";
+                inp.blur();
+                
+                // Cleanup: Remove input element
+                inp.remove();
+                
+                // Let IDE handle console visibility
+                if (typeof IDE !== 'undefined' && typeof IDE.showConsole === 'function') { 
+                    // Don't call hideConsole - let IDE manage visibility
+                }
+                
+                inp.removeEventListener("keydown", onKeyDown);
+                resolve("");
+            }
 
             inp.addEventListener("keydown", onKeyDown);
             promptLine.scrollIntoView({ behavior: "smooth", block: "end" });
         });
+    }
+
+    // Main input handler that IDE expects
+    async function handleInput(promptText, isMultiline) {
+        return await func_Input(promptText, isMultiline);
     }
 
     // ------------------------
@@ -206,11 +232,22 @@ function _QB() {
     function func_UCase(v){_assertParam(v);return String(v).toUpperCase();}
 
     // ------------------------
+    // Running state detection
+    // ------------------------
+    function running() {
+        // Check if any program is currently running
+        if (typeof IDE !== 'undefined' && typeof IDE.mode === 'function') {
+            return IDE.mode() !== 'ide';
+        }
+        return false;
+    }
+
+    // ------------------------
     // Public API
     // ------------------------
     return {
-        initArray, resizeArray, arrayValue, autoLimit, halt, halted,
-        func_Input, func_Asc, func_Chr, func_Command, func_Fetch, sub_Fetch,
+        initArray, resizeArray, arrayValue, autoLimit, halt, halted, running,
+        func_Input, handleInput, func_Asc, func_Chr, func_Command, func_Fetch, sub_Fetch,
         func_InStr, func__InStrRev, func_LCase, func_Left, func_Len, func_LTrim,
         func_Mid, func_Right, func__Round, func_Rnd, func_RTrim, func_Str, func_String,
         func__Trim, func_UBound, func_UCase
@@ -218,5 +255,5 @@ function _QB() {
 }
 
 // Attach to window
-if (typeof window !== "undefined") { window.QB = _QB; }
+if (typeof window !== "undefined") { window.QB = _QB(); }
 
