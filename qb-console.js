@@ -1,5 +1,5 @@
 // console-qb.js
-// Production-ready _QB runtime (browser + node) with console input support (mobile-friendly, Android keyboard fix)
+// Production-ready _QB runtime (browser only) with console input support (mobile-friendly, Android keyboard fix)
 
 function _QB() {
     var _rndSeed;
@@ -46,173 +46,171 @@ function _QB() {
     }
 
     // ------------------------
-    // Input handling (browser + Node) - FIXED for Android keyboard
+    // Input handling (browser only) - FIXED for Android keyboard and missing prompt
     // ------------------------
     async function func_Input(promptText) {
-        if (typeof window === "undefined") {
-            // Node environment (unchanged)
-            return new Promise(resolve => {
-                try {
-                    const readline = require("readline");
-                    const rl = readline.createInterface({
-                        input: process.stdin,
-                        output: process.stdout
-                    });
-                    rl.question(promptText + " ", answer => {
-                        rl.close();
-                        resolve(answer);
-                    });
-                } catch (e) {
+        // Browser environment logic only
+        return new Promise(resolve => {
+            
+            // --- FIX 1: Add default '?' prompt if none is provided ---
+            if (!promptText || promptText === "") {
+                promptText = "? "; 
+            }
+            // ------------------------------------
+
+            // --- FIX 2: Ensure IDE console is visible (uses IDE object from qbjs-ide.js) ---
+            if (typeof IDE !== 'undefined' && typeof IDE.showConsole === 'function') { 
+                IDE.showConsole(); 
+            }
+            // -------------------------------------------------------------------------
+
+            // Ensure console area
+            let consoleArea = document.getElementById("qb_console_area");
+            if (!consoleArea) {
+                consoleArea = document.createElement("div");
+                consoleArea.id = "qb_console_area";
+                document.body.appendChild(consoleArea);
+            }
+
+            // Apply essential console styling
+            consoleArea.style.whiteSpace = "pre-wrap";
+            consoleArea.style.fontFamily = "monospace";
+            consoleArea.style.backgroundColor = "#000";
+            consoleArea.style.color = "#fff";
+            consoleArea.style.padding = "8px";
+            consoleArea.style.minHeight = "50px";
+            consoleArea.style.overflowY = "auto";
+            consoleArea.style.display = "block";
+
+            // Append the prompt line (now guaranteed to have text)
+            const promptLine = document.createElement("div");
+            promptLine.textContent = promptText;
+            consoleArea.appendChild(promptLine);
+
+            // Create or reuse input
+            let inp = document.getElementById("_qb_console_input");
+            if (!inp) {
+                inp = document.createElement("input");
+                inp.id = "_qb_console_input";
+                inp.type = "text";
+                inp.style.width = "100%";
+                inp.style.padding = "6px";
+                inp.style.margin = "6px 0";
+                inp.style.border = "1px solid #555";
+                inp.style.background = "#222";
+                inp.style.color = "#fff";
+                inp.style.fontFamily = "monospace";
+                inp.style.fontSize = "1em";
+                inp.style.boxSizing = "border-box";
+                inp.autocomplete = "off";
+                inp.autocapitalize = "none";
+                inp.autocorrect = "off";
+                inp.spellcheck = false;
+                consoleArea.appendChild(inp);
+            }
+
+            // Create "Tap to Enter" button
+            let tapBtn = document.getElementById("_qb_tap_to_input");
+            if (!tapBtn) {
+                tapBtn = document.createElement("button");
+                tapBtn.id = "_qb_tap_to_input";
+                tapBtn.textContent = "📱 Tap here to type";
+                tapBtn.style.width = "100%";
+                tapBtn.style.padding = "10px";
+                tapBtn.style.margin = "5px 0";
+                tapBtn.style.background = "#444";
+                tapBtn.style.color = "#fff";
+                tapBtn.style.border = "1px solid #666";
+                tapBtn.style.fontFamily = "monospace";
+                tapBtn.style.cursor = "pointer";
+                consoleArea.appendChild(tapBtn);
+            }
+
+            // Special invisible textarea fallback (triggers keyboard reliably)
+            let hiddenTA = document.getElementById("_qb_keyboard_fallback");
+            if (!hiddenTA) {
+                hiddenTA = document.createElement("textarea");
+                hiddenTA.id = "_qb_keyboard_fallback";
+                hiddenTA.style.position = "absolute";
+                hiddenTA.style.opacity = "0";
+                hiddenTA.style.height = "1px";
+                hiddenTA.style.width = "1px";
+                hiddenTA.style.zIndex = "-1";
+                document.body.appendChild(hiddenTA);
+            }
+
+            const activateInput = () => {
+                // Show input immediately
+                inp.style.display = "block";
+                tapBtn.style.display = "none";
+                inp.value = "";
+
+                // Android Chrome reliable keyboard trigger
+                hiddenTA.focus();
+                setTimeout(() => {
+                    inp.focus();
+                    // Scroll into view ensures the input field is visible on mobile
+                    inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }, 50);
+            };
+
+            tapBtn.onclick = activateInput;
+            tapBtn.ontouchstart = activateInput;
+
+            const onKeyDown = (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    const val = inp.value;
+                    const outLine = document.createElement("div");
+                    outLine.textContent = val;
+                    consoleArea.appendChild(outLine);
+                    inp.value = "";
+                    inp.blur();
+                    tapBtn.remove();
+                    inp.removeEventListener("keydown", onKeyDown);
+                    
+                    // --- Cleanup: Hide console after input is done ---
+                    if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') { 
+                        IDE.hideConsole(); 
+                    }
+                    // -----------------------------------------------
+                    
+                    resolve(val);
+                } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    inp.value = "";
+                    inp.blur();
+                    tapBtn.remove();
+                    inp.removeEventListener("keydown", onKeyDown);
+                    
+                    // --- Cleanup: Hide console after input is done ---
+                    if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') { 
+                        IDE.hideConsole(); 
+                    }
+                    // -----------------------------------------------
+                    
                     resolve("");
                 }
-            });
-        } else {
-            // Browser (enhanced for Android)
-            return new Promise(resolve => {
-                // Ensure console area
-                let consoleArea = document.getElementById("qb_console_area");
-                if (!consoleArea) {
-                    consoleArea = document.createElement("div");
-                    consoleArea.id = "qb_console_area";
-                    document.body.appendChild(consoleArea);
-                }
+            };
 
-                consoleArea.style.whiteSpace = "pre-wrap";
-                consoleArea.style.fontFamily = "monospace";
-                consoleArea.style.backgroundColor = "#000";
-                consoleArea.style.color = "#fff";
-                consoleArea.style.padding = "8px";
-                consoleArea.style.minHeight = "50px";
-                consoleArea.style.overflowY = "auto";
-                consoleArea.style.display = "block";
-
-                const promptLine = document.createElement("div");
-                promptLine.textContent = promptText;
-                consoleArea.appendChild(promptLine);
-
-                // Create or reuse input
-                let inp = document.getElementById("_qb_console_input");
-                if (!inp) {
-                    inp = document.createElement("input");
-                    inp.id = "_qb_console_input";
-                    inp.type = "text";
-                    inp.style.width = "100%";
-                    inp.style.padding = "6px";
-                    inp.style.margin = "6px 0";
-                    inp.style.border = "1px solid #555";
-                    inp.style.background = "#222";
-                    inp.style.color = "#fff";
-                    inp.style.fontFamily = "monospace";
-                    inp.style.fontSize = "1em";
-                    inp.style.boxSizing = "border-box";
-                    inp.autocomplete = "off";
-                    inp.autocapitalize = "none";
-                    inp.autocorrect = "off";
-                    inp.spellcheck = false;
-                    consoleArea.appendChild(inp);
-                }
-
-                // Create "Tap to Enter" button
-                let tapBtn = document.getElementById("_qb_tap_to_input");
-                if (!tapBtn) {
-                    tapBtn = document.createElement("button");
-                    tapBtn.id = "_qb_tap_to_input";
-                    tapBtn.textContent = "📱 Tap here to type";
-                    tapBtn.style.width = "100%";
-                    tapBtn.style.padding = "10px";
-                    tapBtn.style.margin = "5px 0";
-                    tapBtn.style.background = "#444";
-                    tapBtn.style.color = "#fff";
-                    tapBtn.style.border = "1px solid #666";
-                    tapBtn.style.fontFamily = "monospace";
-                    tapBtn.style.cursor = "pointer";
-                    consoleArea.appendChild(tapBtn);
-                }
-
-                // Special invisible textarea fallback (triggers keyboard reliably)
-                let hiddenTA = document.getElementById("_qb_keyboard_fallback");
-                if (!hiddenTA) {
-                    hiddenTA = document.createElement("textarea");
-                    hiddenTA.id = "_qb_keyboard_fallback";
-                    hiddenTA.style.position = "absolute";
-                    hiddenTA.style.opacity = "0";
-                    hiddenTA.style.height = "1px";
-                    hiddenTA.style.width = "1px";
-                    hiddenTA.style.zIndex = "-1";
-                    document.body.appendChild(hiddenTA);
-                }
-
-                const activateInput = () => {
-                    // Show input immediately
-                    inp.style.display = "block";
-                    tapBtn.style.display = "none";
-                    inp.value = "";
-
-                    // Android Chrome reliable keyboard trigger
-                    hiddenTA.focus();
-                    setTimeout(() => {
-                        inp.focus();
-                        inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                    }, 50);
-                };
-
-                tapBtn.onclick = activateInput;
-                tapBtn.ontouchstart = activateInput;
-
-                const onKeyDown = (e) => {
-                    if (e.key === "Enter") {
-                        e.preventDefault();
-                        const val = inp.value;
-                        const outLine = document.createElement("div");
-                        outLine.textContent = val;
-                        consoleArea.appendChild(outLine);
-                        inp.value = "";
-                        inp.blur();
-                        tapBtn.remove();
-                        inp.removeEventListener("keydown", onKeyDown);
-                        resolve(val);
-                    } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        inp.value = "";
-                        inp.blur();
-                        tapBtn.remove();
-                        inp.removeEventListener("keydown", onKeyDown);
-                        resolve("");
-                    }
-                };
-
-                inp.addEventListener("keydown", onKeyDown);
-                promptLine.scrollIntoView({ behavior: "smooth", block: "end" });
-            });
-        }
+            inp.addEventListener("keydown", onKeyDown);
+            promptLine.scrollIntoView({ behavior: "smooth", block: "end" });
+        });
     }
 
     // ------------------------
-    // Fetch helper (Node + Browser)
+    // Fetch helper (Browser only)
     // ------------------------
     async function sub_Fetch(url, fetchRes) {
-        if (typeof window === "undefined") {
-            // Node
-            try {
-                const fs = require("fs");
-                fetchRes.text = fs.readFileSync(url, "utf8");
-                fetchRes.ok = true;
-            } catch (e) {
-                fetchRes.text = "";
-                fetchRes.ok = false;
-                fetchRes.error = e.message || String(e);
-            }
-        } else {
-            // Browser
-            try {
-                const r = await fetch(url);
-                fetchRes.text = await r.text();
-                fetchRes.ok = r.ok;
-            } catch (e) {
-                fetchRes.text = "";
-                fetchRes.ok = false;
-                fetchRes.error = e.message || String(e);
-            }
+        // Browser only logic
+        try {
+            const r = await fetch(url);
+            fetchRes.text = await r.text();
+            fetchRes.ok = r.ok;
+        } catch (e) {
+            fetchRes.text = "";
+            fetchRes.ok = false;
+            fetchRes.error = e.message || String(e);
         }
     }
 
@@ -221,10 +219,9 @@ function _QB() {
         await QB.sub_Fetch(url, fetchRes);
         return fetchRes;
     }
-
-    // ------------------------
-    // Other helpers
-    // ------------------------
+    
+    // ... (rest of the file's helper functions: halt, func_Asc, func_Chr, etc.) ...
+    
     function halt() {}
     function halted() { return false; }
     function autoLimit() {}
@@ -261,7 +258,6 @@ function _QB() {
     };
 }
 
-// Node export + attach to window
-if (typeof module !== "undefined" && module.exports) { module.exports.QB = _QB; }
+// Attach to window (Node export removed)
 if (typeof window !== "undefined") { window.QB = _QB; }
 
