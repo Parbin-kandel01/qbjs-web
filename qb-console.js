@@ -46,23 +46,21 @@ function _QB() {
     }
 
     // ------------------------
-    // Input handling (browser only) - FIXED for Android keyboard and missing prompt
+    // Input handling (browser only) - FIXED for default prompt and simplified keyboard
     // ------------------------
     async function func_Input(promptText) {
         // Browser environment logic only
         return new Promise(resolve => {
             
-            // --- FIX 1: Add default '?' prompt if none is provided ---
+            // FIX: Add default '?' prompt if none is provided (e.g., INPUT N)
             if (!promptText || promptText === "") {
                 promptText = "? "; 
             }
-            // ------------------------------------
 
-            // --- Console Visibility: Show IDE console if the function exists (for GX/IDE mode) ---
+            // Console Visibility: Show IDE console before input (Crucial for GX mode)
             if (typeof IDE !== 'undefined' && typeof IDE.showConsole === 'function') { 
                 IDE.showConsole(); 
             }
-            // -------------------------------------------------------------------------------------
 
             // Ensure console area
             let consoleArea = document.getElementById("qb_console_area");
@@ -82,7 +80,7 @@ function _QB() {
             consoleArea.style.overflowY = "auto";
             consoleArea.style.display = "block";
 
-            // Append the prompt line (now guaranteed to have text)
+            // Append the prompt line
             const promptLine = document.createElement("div");
             promptLine.textContent = promptText;
             consoleArea.appendChild(promptLine);
@@ -108,57 +106,19 @@ function _QB() {
                 inp.spellcheck = false;
                 consoleArea.appendChild(inp);
             }
+            
+            // --- Removed: "Tap to Enter" button and hidden keyboard fallback ---
 
-            // Create "Tap to Enter" button
-            let tapBtn = document.getElementById("_qb_tap_to_input");
-            if (!tapBtn) {
-                tapBtn = document.createElement("button");
-                tapBtn.id = "_qb_tap_to_input";
-                tapBtn.textContent = "📱 Tap here to type";
-                tapBtn.style.width = "100%";
-                tapBtn.style.padding = "10px";
-                tapBtn.style.margin = "5px 0";
-                tapBtn.style.background = "#444";
-                tapBtn.style.color = "#fff";
-                tapBtn.style.border = "1px solid #666";
-                tapBtn.style.fontFamily = "monospace";
-                tapBtn.style.cursor = "pointer";
-                consoleArea.appendChild(tapBtn);
-            }
+            // --- KEYBOARD ACTIVATION (Aggressive Direct Focus) ---
+            inp.value = "";
+            inp.style.display = "block"; 
 
-            // Special invisible textarea fallback (triggers keyboard reliably)
-            let hiddenTA = document.getElementById("_qb_keyboard_fallback");
-            if (!hiddenTA) {
-                hiddenTA = document.createElement("textarea");
-                hiddenTA.id = "_qb_keyboard_fallback";
-                hiddenTA.style.position = "absolute";
-                hiddenTA.style.opacity = "0";
-                hiddenTA.style.height = "1px";
-                hiddenTA.style.width = "1px";
-                hiddenTA.style.zIndex = "-1";
-                document.body.appendChild(hiddenTA);
-            }
-
-            const activateInput = () => {
-                // Show input immediately
-                inp.style.display = "block";
-                tapBtn.style.display = "none";
-                inp.value = "";
-
-                // Android Chrome reliable keyboard trigger
-                hiddenTA.focus();
-                
-                // --- FIX 3: Increased timeout for reliable keyboard activation ---
-                setTimeout(() => {
-                    inp.focus();
-                    inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }, 100); // Increased from 50 to 100ms
-                // ----------------------------------------------------------------
-
-            };
-
-            tapBtn.onclick = activateInput;
-            tapBtn.ontouchstart = activateInput;
+            // Use a slight delay to ensure the console is rendered before focusing
+            setTimeout(() => {
+                inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                inp.focus(); 
+            }, 100); 
+            // --------------------------------------------------------
 
             const onKeyDown = (e) => {
                 if (e.key === "Enter") {
@@ -169,29 +129,25 @@ function _QB() {
                     consoleArea.appendChild(outLine);
                     inp.value = "";
                     inp.blur();
-                    tapBtn.remove();
-                    inp.removeEventListener("keydown", onKeyDown);
                     
-                    // --- Cleanup: Hide console after input is done ---
+                    // Cleanup: Hide console after input is done
                     if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') { 
                         IDE.hideConsole(); 
                     }
-                    // -----------------------------------------------
                     
+                    inp.removeEventListener("keydown", onKeyDown);
                     resolve(val);
                 } else if (e.key === "Escape") {
                     e.preventDefault();
                     inp.value = "";
                     inp.blur();
-                    tapBtn.remove();
-                    inp.removeEventListener("keydown", onKeyDown);
                     
-                    // --- Cleanup: Hide console after input is done ---
+                    // Cleanup: Hide console after input is done
                     if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') { 
                         IDE.hideConsole(); 
                     }
-                    // -----------------------------------------------
                     
+                    inp.removeEventListener("keydown", onKeyDown);
                     resolve("");
                 }
             };
@@ -202,10 +158,9 @@ function _QB() {
     }
 
     // ------------------------
-    // Fetch helper (Browser only)
+    // Fetch helper (Browser only) - Node logic removed
     // ------------------------
     async function sub_Fetch(url, fetchRes) {
-        // Browser only logic
         try {
             const r = await fetch(url);
             fetchRes.text = await r.text();
