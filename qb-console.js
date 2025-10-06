@@ -58,11 +58,11 @@ function _QB() {
             }
             // ------------------------------------
 
-            // --- FIX 2: Ensure IDE console is visible (uses IDE object from qbjs-ide.js) ---
+            // --- Console Visibility: Show IDE console if the function exists (for GX/IDE mode) ---
             if (typeof IDE !== 'undefined' && typeof IDE.showConsole === 'function') { 
                 IDE.showConsole(); 
             }
-            // -------------------------------------------------------------------------
+            // -------------------------------------------------------------------------------------
 
             // Ensure console area
             let consoleArea = document.getElementById("qb_console_area");
@@ -147,11 +147,14 @@ function _QB() {
 
                 // Android Chrome reliable keyboard trigger
                 hiddenTA.focus();
+                
+                // --- FIX 3: Increased timeout for reliable keyboard activation ---
                 setTimeout(() => {
                     inp.focus();
-                    // Scroll into view ensures the input field is visible on mobile
                     inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }, 50);
+                }, 100); // Increased from 50 to 100ms
+                // ----------------------------------------------------------------
+
             };
 
             tapBtn.onclick = activateInput;
@@ -220,8 +223,9 @@ function _QB() {
         return fetchRes;
     }
     
-    // ... (rest of the file's helper functions: halt, func_Asc, func_Chr, etc.) ...
-    
+    // ------------------------
+    // Other helpers
+    // ------------------------
     function halt() {}
     function halted() { return false; }
     function autoLimit() {}
@@ -258,6 +262,6 @@ function _QB() {
     };
 }
 
-// Attach to window (Node export removed)
+// Attach to window
 if (typeof window !== "undefined") { window.QB = _QB; }
 
