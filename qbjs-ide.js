@@ -285,9 +285,12 @@ var IDE = new function() {
             if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
                 mobileInput.style.opacity = "0.01";
                 mobileInput.focus();
+                // FIX: Removed setTimeout to ensure keyboard opens reliably on mobile click
+                /*
                 setTimeout(() => {
                     mobileInput.style.opacity = "0";
                 }, 1000);
+                */
             }
         });
 
@@ -515,9 +518,12 @@ var IDE = new function() {
                 if (mobileInput) {
                     mobileInput.style.opacity = "0.01";
                     mobileInput.focus();
+                    // FIX: Removed setTimeout to ensure keyboard opens reliably
+                    /*
                     setTimeout(() => {
                         mobileInput.style.opacity = "0";
                     }, 2000);
+                    */
                 }
 
                 // Proceed with original QB.input behavior
