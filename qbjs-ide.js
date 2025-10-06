@@ -72,6 +72,125 @@ var IDE = new function() {
         return document.getElementById(id);
     }
 
+    // Add mobile device detection
+    function isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
+    // Add mobile input handling
+    function _setupMobileInput() {
+        // Create mobile input elements
+        var mobileInput = document.getElementById('mobile-input');
+        if (!mobileInput) {
+            mobileInput = document.createElement('input');
+            mobileInput.id = 'mobile-input';
+            mobileInput.type = 'text';
+            mobileInput.style.position = 'fixed';
+            mobileInput.style.top = '-100px';
+            mobileInput.style.left = '0';
+            mobileInput.style.width = '100px';
+            mobileInput.style.zIndex = '10000';
+            mobileInput.style.opacity = '0';
+            mobileInput.style.pointerEvents = 'none';
+            document.body.appendChild(mobileInput);
+        }
+
+        var mobileTextarea = document.getElementById('mobile-textarea');
+        if (!mobileTextarea) {
+            mobileTextarea = document.createElement('textarea');
+            mobileTextarea.id = 'mobile-textarea';
+            mobileTextarea.style.position = 'fixed';
+            mobileTextarea.style.top = '-100px';
+            mobileTextarea.style.left = '0';
+            mobileTextarea.style.width = '100px';
+            mobileTextarea.style.height = '60px';
+            mobileTextarea.style.zIndex = '10000';
+            mobileTextarea.style.opacity = '0';
+            mobileTextarea.style.pointerEvents = 'none';
+            document.body.appendChild(mobileTextarea);
+        }
+
+        // Override QB input functions to use mobile input
+        if (typeof QB !== 'undefined') {
+            // Store original input handler if it exists
+            var originalInput = QB.handleInput;
+            
+            QB.handleInput = function(prompt, isMultiline) {
+                if (isMobileDevice()) {
+                    return new Promise((resolve) => {
+                        var inputElement = isMultiline ? mobileTextarea : mobileInput;
+                        
+                        // Position the input at bottom of screen for mobile
+                        inputElement.style.top = 'auto';
+                        inputElement.style.bottom = '50px';
+                        inputElement.style.left = '10%';
+                        inputElement.style.width = '80%';
+                        inputElement.style.opacity = '1';
+                        inputElement.style.pointerEvents = 'auto';
+                        inputElement.style.background = 'white';
+                        inputElement.style.color = 'black';
+                        inputElement.style.border = '2px solid #007acc';
+                        inputElement.style.borderRadius = '5px';
+                        inputElement.style.padding = '10px';
+                        inputElement.style.fontSize = '16px';
+                        
+                        if (prompt) {
+                            // Show prompt in console
+                            console.log(prompt);
+                        }
+                        
+                        inputElement.value = '';
+                        inputElement.focus();
+                        
+                        function handleSubmit() {
+                            var value = inputElement.value;
+                            inputElement.style.opacity = '0';
+                            inputElement.style.pointerEvents = 'none';
+                            inputElement.style.top = '-100px';
+                            inputElement.blur();
+                            
+                            inputElement.removeEventListener('blur', handleBlur);
+                            inputElement.removeEventListener('keypress', handleKeypress);
+                            
+                            resolve(value);
+                        }
+                        
+                        function handleKeypress(e) {
+                            if (e.key === 'Enter' && !isMultiline) {
+                                e.preventDefault();
+                                handleSubmit();
+                            }
+                        }
+                        
+                        function handleBlur() {
+                            // Small delay to check if this is due to submission
+                            setTimeout(() => {
+                                if (document.activeElement !== inputElement) {
+                                    handleSubmit();
+                                }
+                            }, 100);
+                        }
+                        
+                        inputElement.addEventListener('keypress', handleKeypress);
+                        inputElement.addEventListener('blur', handleBlur);
+                    });
+                } else {
+                    // Use original input handler for non-mobile
+                    if (originalInput) {
+                        return originalInput.call(this, prompt, isMultiline);
+                    } else {
+                        // Fallback if no original handler
+                        return new Promise((resolve) => {
+                            var value = prompt(prompt || "Enter input:");
+                            resolve(value || "");
+                        });
+                    }
+                }
+            };
+        }
+    }
+
     async function _init() {
         document.body.style.display = "initial";
 
@@ -155,6 +274,9 @@ var IDE = new function() {
             _e.ideTheme.href = "codemirror/themes/" + theme + ".css";
             GitHelp.navhome();
         }
+
+        // Initialize mobile input handling
+        _setupMobileInput();
 
         // initialize the code editor
         editor = CodeMirror(document.querySelector("#code"), {
@@ -261,8 +383,6 @@ var IDE = new function() {
         if (appMode == "auto") {
             _runProgram();
         }
-        
-        // --- No custom mobile input initialization here (relying on console-qb.js) ---
     }    
 
     function _getErrorLine(error, stackDepth) {
@@ -453,8 +573,6 @@ var IDE = new function() {
 
         return false;
     }
-    
-    // --- Removed Mobile Input Hook: Relying on func_Input in console-qb.js ---
 
     function _hasError() {
         var warnings = QBCompiler.getWarnings();
