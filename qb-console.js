@@ -1,5 +1,5 @@
 // console-qb.js
-// Production-ready _QB runtime (browser + node) with console input support (mobile-friendly, keyboard fix)
+// Production-ready _QB runtime (browser + node) with console input support (mobile-friendly, Android keyboard fix)
 
 function _QB() {
     var _rndSeed;
@@ -46,7 +46,7 @@ function _QB() {
     }
 
     // ------------------------
-    // Input handling (browser + Node) - Fixed for mobile keyboard
+    // Input handling (browser + Node) - FIXED for Android keyboard
     // ------------------------
     async function func_Input(promptText) {
         if (typeof window === "undefined") {
@@ -67,174 +67,128 @@ function _QB() {
                 }
             });
         } else {
-            // Browser environment (enhanced for mobile keyboard reliability)
+            // Browser (enhanced for Android)
             return new Promise(resolve => {
-                // Auto-ensure console is visible (calls IDE method if available)
-                if (typeof IDE !== 'undefined' && IDE.ensureConsoleVisible) {
-                    IDE.ensureConsoleVisible();
-                }
-
+                // Ensure console area
                 let consoleArea = document.getElementById("qb_console_area");
                 if (!consoleArea) {
-                    // Fallback: Use IDE's output-content if available
-                    consoleArea = document.getElementById("output-content");
-                    if (consoleArea) {
-                        consoleArea.id = "qb_console_area"; // Consistent ID
-                    } else {
-                        // Ultimate fallback: Create basic console area
-                        consoleArea = document.createElement("div");
-                        consoleArea.id = "qb_console_area";
-                        document.body.appendChild(consoleArea);
-                    }
+                    consoleArea = document.createElement("div");
+                    consoleArea.id = "qb_console_area";
+                    document.body.appendChild(consoleArea);
                 }
 
-                // Apply console styling (preserved + mobile overflow)
                 consoleArea.style.whiteSpace = "pre-wrap";
                 consoleArea.style.fontFamily = "monospace";
-                consoleArea.style.padding = "6px";
-                consoleArea.style.minHeight = "40px";
                 consoleArea.style.backgroundColor = "#000";
                 consoleArea.style.color = "#fff";
+                consoleArea.style.padding = "8px";
+                consoleArea.style.minHeight = "50px";
                 consoleArea.style.overflowY = "auto";
-                consoleArea.style.maxHeight = "calc(100vh - 100px)";
                 consoleArea.style.display = "block";
-                consoleArea.scrollTop = consoleArea.scrollHeight;
 
-                // Add prompt line (original logic)
                 const promptLine = document.createElement("div");
                 promptLine.textContent = promptText;
                 consoleArea.appendChild(promptLine);
 
-                // Create tappable "Tap to Enter" button for user gesture (mobile keyboard trigger)
-                const tapButton = document.createElement("button");
-                tapButton.id = "_qb_tap_to_input";
-                tapButton.textContent = "Tap to Enter Input";
-                tapButton.style.width = "100%";
-                tapButton.style.padding = "8px";
-                tapButton.style.margin = "5px 0";
-                tapButton.style.backgroundColor = "#444";
-                tapButton.style.color = "#fff";
-                tapButton.style.border = "1px solid #666";
-                tapButton.style.fontFamily = "monospace";
-                tapButton.style.cursor = "pointer";
-                tapButton.style.display = "block"; // Visible on mobile
-                consoleArea.appendChild(tapButton);
-
-                // Create or reuse input element
+                // Create or reuse input
                 let inp = document.getElementById("_qb_console_input");
                 if (!inp) {
                     inp = document.createElement("input");
                     inp.id = "_qb_console_input";
                     inp.type = "text";
-                    inp.style.width = "calc(100% - 12px)";
-                    inp.style.padding = "5px";
-                    inp.style.margin = "5px 0";
+                    inp.style.width = "100%";
+                    inp.style.padding = "6px";
+                    inp.style.margin = "6px 0";
                     inp.style.border = "1px solid #555";
-                    inp.style.backgroundColor = "#222";
+                    inp.style.background = "#222";
                     inp.style.color = "#fff";
                     inp.style.fontFamily = "monospace";
                     inp.style.fontSize = "1em";
                     inp.style.boxSizing = "border-box";
-                    inp.style.display = "none"; // Initially hidden; shown on tap
                     inp.autocomplete = "off";
                     inp.autocapitalize = "none";
                     inp.autocorrect = "off";
                     inp.spellcheck = false;
-                    inp.style.outline = "none";
-                    inp.placeholder = "Type here and press Enter...";
                     consoleArea.appendChild(inp);
-
-                    // Enhanced focus function (with delay for mobile timing)
-                    const focusInput = () => {
-                        inp.style.display = "block"; // Show input
-                        tapButton.style.display = "none"; // Hide button after tap
-                        inp.value = "";
-                        // Delayed focus to ensure DOM/resize settles
-                        requestAnimationFrame(() => {
-                            inp.focus();
-                            inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                            // Retry focus if needed (mobile quirk)
-                            setTimeout(() => {
-                                if (document.activeElement !== inp) {
-                                    inp.focus();
-                                }
-                            }, 100);
-                        });
-                    };
-
-                    // Tap button triggers focus (user gesture for keyboard)
-                    tapButton.addEventListener("click", focusInput, { passive: true });
-                    tapButton.addEventListener("touchstart", focusInput, { passive: true });
-
-                    // Fallback: Click/touch on console area also focuses
-                    const areaFocus = () => {
-                        if (inp.style.display === "none") focusInput();
-                    };
-                    consoleArea.addEventListener("click", areaFocus, { passive: true });
-                    consoleArea.addEventListener("touchstart", areaFocus, { passive: true });
-                } else {
-                    // Reuse: Show tap button if input was hidden
-                    if (document.getElementById("_qb_tap_to_input")) {
-                        tapButton.style.display = "block";
-                    }
-                    inp.style.display = "none";
-                    consoleArea.appendChild(inp); // Ensure positioning
                 }
 
-                // Initially show tap button (prompts user interaction for keyboard)
-                if (!document.getElementById("_qb_tap_to_input")) {
-                    consoleArea.appendChild(tapButton);
+                // Create "Tap to Enter" button
+                let tapBtn = document.getElementById("_qb_tap_to_input");
+                if (!tapBtn) {
+                    tapBtn = document.createElement("button");
+                    tapBtn.id = "_qb_tap_to_input";
+                    tapBtn.textContent = "📱 Tap here to type";
+                    tapBtn.style.width = "100%";
+                    tapBtn.style.padding = "10px";
+                    tapBtn.style.margin = "5px 0";
+                    tapBtn.style.background = "#444";
+                    tapBtn.style.color = "#fff";
+                    tapBtn.style.border = "1px solid #666";
+                    tapBtn.style.fontFamily = "monospace";
+                    tapBtn.style.cursor = "pointer";
+                    consoleArea.appendChild(tapBtn);
                 }
-                tapButton.style.display = "block";
 
-                // Scroll to prompt/tap area
-                promptLine.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                // Special invisible textarea fallback (triggers keyboard reliably)
+                let hiddenTA = document.getElementById("_qb_keyboard_fallback");
+                if (!hiddenTA) {
+                    hiddenTA = document.createElement("textarea");
+                    hiddenTA.id = "_qb_keyboard_fallback";
+                    hiddenTA.style.position = "absolute";
+                    hiddenTA.style.opacity = "0";
+                    hiddenTA.style.height = "1px";
+                    hiddenTA.style.width = "1px";
+                    hiddenTA.style.zIndex = "-1";
+                    document.body.appendChild(hiddenTA);
+                }
 
-                // Keydown handler (original, works on mobile)
-                function onKeyDown(e) {
+                const activateInput = () => {
+                    // Show input immediately
+                    inp.style.display = "block";
+                    tapBtn.style.display = "none";
+                    inp.value = "";
+
+                    // Android Chrome reliable keyboard trigger
+                    hiddenTA.focus();
+                    setTimeout(() => {
+                        inp.focus();
+                        inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    }, 50);
+                };
+
+                tapBtn.onclick = activateInput;
+                tapBtn.ontouchstart = activateInput;
+
+                const onKeyDown = (e) => {
                     if (e.key === "Enter") {
                         e.preventDefault();
                         const val = inp.value;
-                        inp.value = "";
-                        inp.style.display = "none";
-
-                        // Echo input
                         const outLine = document.createElement("div");
                         outLine.textContent = val;
                         consoleArea.appendChild(outLine);
-                        consoleArea.scrollTop = consoleArea.scrollHeight;
-
-                        // Cleanup: Remove listeners and button
-                        inp.removeEventListener("keydown", onKeyDown, false);
-                        if (tapButton) tapButton.remove();
+                        inp.value = "";
                         inp.blur();
+                        tapBtn.remove();
+                        inp.removeEventListener("keydown", onKeyDown);
                         resolve(val);
                     } else if (e.key === "Escape") {
                         e.preventDefault();
                         inp.value = "";
-                        inp.style.display = "none";
-                        if (tapButton) tapButton.remove();
-                        inp.removeEventListener("keydown", onKeyDown, false);
                         inp.blur();
+                        tapBtn.remove();
+                        inp.removeEventListener("keydown", onKeyDown);
                         resolve("");
                     }
-                }
+                };
 
-                inp.addEventListener("keydown", onKeyDown, false);
-
-                // Error handling: If no interaction after 30s, resolve empty (prevent hang)
-                setTimeout(() => {
-                    if (inp.style.display === "block" && document.activeElement !== inp) {
-                        console.warn("QB Input: No user interaction detected, resolving empty.");
-                        resolve("");
-                    }
-                }, 30000);
+                inp.addEventListener("keydown", onKeyDown);
+                promptLine.scrollIntoView({ behavior: "smooth", block: "end" });
             });
         }
     }
 
     // ------------------------
-    // Fetch helper (Node + Browser) - Unchanged
+    // Fetch helper (Node + Browser)
     // ------------------------
     async function sub_Fetch(url, fetchRes) {
         if (typeof window === "undefined") {
@@ -269,7 +223,7 @@ function _QB() {
     }
 
     // ------------------------
-    // Other helpers (unchanged)
+    // Other helpers
     // ------------------------
     function halt() {}
     function halted() { return false; }
@@ -296,7 +250,7 @@ function _QB() {
     function func_UCase(v){_assertParam(v);return String(v).toUpperCase();}
 
     // ------------------------
-    // Public API (unchanged)
+    // Public API
     // ------------------------
     return {
         initArray, resizeArray, arrayValue, autoLimit, halt, halted,
@@ -307,6 +261,7 @@ function _QB() {
     };
 }
 
-// Node export + attach to window (unchanged)
-if(typeof module!=="undefined" && module.exports){module.exports.QB=_QB;}
-if(typeof window!=="undefined"){window.QB=_QB;}
+// Node export + attach to window
+if (typeof module !== "undefined" && module.exports) { module.exports.QB = _QB; }
+if (typeof window !== "undefined") { window.QB = _QB; }
+
