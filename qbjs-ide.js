@@ -78,22 +78,49 @@ var IDE = new function() {
                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     }
 
-    // Add mobile input handling
+    // Add mobile input handling with visible Submit button
     function _setupMobileInput() {
-        // Create mobile input elements
-        var mobileInput = document.getElementById('mobile-input');
-        if (!mobileInput) {
-            mobileInput = document.createElement('input');
+        // Create mobile input container
+        var mobileInputContainer = document.getElementById('mobile-input-container');
+        if (!mobileInputContainer) {
+            mobileInputContainer = document.createElement('div');
+            mobileInputContainer.id = 'mobile-input-container';
+            mobileInputContainer.style.position = 'fixed';
+            mobileInputContainer.style.bottom = '0';
+            mobileInputContainer.style.left = '0';
+            mobileInputContainer.style.right = '0';
+            mobileInputContainer.style.backgroundColor = '#333';
+            mobileInputContainer.style.padding = '10px';
+            mobileInputContainer.style.borderTop = '1px solid #555';
+            mobileInputContainer.style.zIndex = '10000';
+            mobileInputContainer.style.display = 'none';
+            document.body.appendChild(mobileInputContainer);
+            
+            // Create input field
+            var mobileInput = document.createElement('input');
             mobileInput.id = 'mobile-input';
             mobileInput.type = 'text';
-            mobileInput.style.position = 'fixed';
-            mobileInput.style.top = '-100px';
-            mobileInput.style.left = '0';
-            mobileInput.style.width = '100px';
-            mobileInput.style.zIndex = '10000';
-            mobileInput.style.opacity = '0';
-            mobileInput.style.pointerEvents = 'none';
-            document.body.appendChild(mobileInput);
+            mobileInput.style.width = '70%';
+            mobileInput.style.padding = '8px';
+            mobileInput.style.fontSize = '16px';
+            mobileInput.style.border = '1px solid #007acc';
+            mobileInput.style.borderRadius = '4px';
+            
+            // Create submit button
+            var submitButton = document.createElement('button');
+            submitButton.id = 'mobile-input-submit';
+            submitButton.innerHTML = 'OK';
+            submitButton.style.width = '25%';
+            submitButton.style.padding = '8px';
+            submitButton.style.marginLeft = '5px';
+            submitButton.style.background = '#007acc';
+            submitButton.style.color = 'white';
+            submitButton.style.border = 'none';
+            submitButton.style.borderRadius = '4px';
+            submitButton.style.fontSize = '16px';
+            
+            mobileInputContainer.appendChild(mobileInput);
+            mobileInputContainer.appendChild(submitButton);
         }
 
         var mobileTextarea = document.getElementById('mobile-textarea');
@@ -113,30 +140,36 @@ var IDE = new function() {
 
         // Override QB input functions to use mobile input
         if (typeof QB !== 'undefined') {
-            // Store original input handler if it exists
             var originalInput = QB.handleInput;
             
             QB.handleInput = function(prompt, isMultiline) {
                 if (isMobileDevice()) {
                     return new Promise((resolve) => {
-                        var inputElement = isMultiline ? mobileTextarea : mobileInput;
+                        var inputElement, container;
                         
-                        // Position the input at bottom of screen for mobile
-                        inputElement.style.top = 'auto';
-                        inputElement.style.bottom = '50px';
-                        inputElement.style.left = '10%';
-                        inputElement.style.width = '80%';
-                        inputElement.style.opacity = '1';
-                        inputElement.style.pointerEvents = 'auto';
-                        inputElement.style.background = 'white';
-                        inputElement.style.color = 'black';
-                        inputElement.style.border = '2px solid #007acc';
-                        inputElement.style.borderRadius = '5px';
-                        inputElement.style.padding = '10px';
-                        inputElement.style.fontSize = '16px';
+                        if (isMultiline) {
+                            inputElement = mobileTextarea;
+                            container = null;
+                            // Position textarea
+                            inputElement.style.top = 'auto';
+                            inputElement.style.bottom = '50px';
+                            inputElement.style.left = '10%';
+                            inputElement.style.width = '80%';
+                            inputElement.style.opacity = '1';
+                            inputElement.style.pointerEvents = 'auto';
+                            inputElement.style.background = 'white';
+                            inputElement.style.color = 'black';
+                            inputElement.style.border = '2px solid #007acc';
+                            inputElement.style.borderRadius = '5px';
+                            inputElement.style.padding = '10px';
+                            inputElement.style.fontSize = '16px';
+                        } else {
+                            container = mobileInputContainer;
+                            inputElement = document.getElementById('mobile-input');
+                            container.style.display = 'block';
+                        }
                         
                         if (prompt) {
-                            // Show prompt in console
                             console.log(prompt);
                         }
                         
@@ -145,42 +178,50 @@ var IDE = new function() {
                         
                         function handleSubmit() {
                             var value = inputElement.value;
-                            inputElement.style.opacity = '0';
-                            inputElement.style.pointerEvents = 'none';
-                            inputElement.style.top = '-100px';
+                            
+                            if (container) {
+                                container.style.display = 'none';
+                            } else {
+                                inputElement.style.opacity = '0';
+                                inputElement.style.pointerEvents = 'none';
+                                inputElement.style.top = '-100px';
+                            }
+                            
                             inputElement.blur();
-                            
-                            inputElement.removeEventListener('blur', handleBlur);
-                            inputElement.removeEventListener('keypress', handleKeypress);
-                            
                             resolve(value);
                         }
                         
-                        function handleKeypress(e) {
-                            if (e.key === 'Enter' && !isMultiline) {
-                                e.preventDefault();
-                                handleSubmit();
-                            }
-                        }
-                        
-                        function handleBlur() {
-                            // Small delay to check if this is due to submission
-                            setTimeout(() => {
-                                if (document.activeElement !== inputElement) {
+                        if (isMultiline) {
+                            inputElement.onkeydown = function(e) {
+                                if (e.key === 'Enter' && e.ctrlKey) {
+                                    e.preventDefault();
                                     handleSubmit();
                                 }
-                            }, 100);
+                            };
+                            
+                            inputElement.onblur = function() {
+                                setTimeout(() => {
+                                    if (inputElement.style.opacity === '1' && document.activeElement !== inputElement) {
+                                        handleSubmit();
+                                    }
+                                }, 300);
+                            };
+                        } else {
+                            var submitButton = document.getElementById('mobile-input-submit');
+                            submitButton.onclick = handleSubmit;
+                            
+                            inputElement.onkeydown = function(e) {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSubmit();
+                                }
+                            };
                         }
-                        
-                        inputElement.addEventListener('keypress', handleKeypress);
-                        inputElement.addEventListener('blur', handleBlur);
                     });
                 } else {
-                    // Use original input handler for non-mobile
                     if (originalInput) {
                         return originalInput.call(this, prompt, isMultiline);
                     } else {
-                        // Fallback if no original handler
                         return new Promise((resolve) => {
                             var value = prompt(prompt || "Enter input:");
                             resolve(value || "");
@@ -1760,5 +1801,3 @@ var IDE = new function() {
     this.changeKeyMap = _changeKeyMap;
     this.toggleConsolePersistence = _toggleConsolePersistence;
 };
-
-
