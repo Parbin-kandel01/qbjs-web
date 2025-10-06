@@ -262,7 +262,7 @@ var IDE = new function() {
             _runProgram();
         }
 
-        // --- mobile keyboard support FIX ---
+        // --- mobile keyboard support FIX INITIALIZATION ---
         const mobileInput = document.createElement("input");
         mobileInput.type = "text";
         mobileInput.id = "mobile-console-input";
@@ -279,18 +279,17 @@ var IDE = new function() {
         mobileInput.style.zIndex = "9999";
         mobileInput.style.border = "none";
         mobileInput.style.background = "transparent";
+        mobileInput.style.pointerEvents = "none"; // By default, ignore clicks
         document.body.appendChild(mobileInput);
 
+        // General console click handler: still tries to open the keyboard if the user clicks the console output
         _e.outputContainer.addEventListener("click", () => {
             if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+                // Only attempt focus if a program is NOT running and requesting INPUT
+                // For general console interaction, we'll revert to the basic, less reliable method
+                // since we don't want to show the big prompt unless INPUT is requested.
                 mobileInput.style.opacity = "0.01";
                 mobileInput.focus();
-                // FIX: Removed setTimeout to ensure keyboard opens reliably on mobile click
-                /*
-                setTimeout(() => {
-                    mobileInput.style.opacity = "0";
-                }, 1000);
-                */
             }
         });
 
@@ -305,7 +304,7 @@ var IDE = new function() {
                 e.target.value = "";
             }
         });
-        // --- end fix ---
+        // --- end fix initialization ---
     }    
 
     function _getErrorLine(error, stackDepth) {
@@ -495,6 +494,7 @@ var IDE = new function() {
         if (/Mobi|Android/i.test(navigator.userAgent)) {
             const mobileInput = document.getElementById("mobile-console-input");
             if (mobileInput) {
+                // After run, try to focus, but this is unreliable (it's fine if it fails here)
                 mobileInput.focus();
             }
         } else {
@@ -503,6 +503,7 @@ var IDE = new function() {
 
         return false;
     }
+    
     // --- Mobile Input Hook for QB INPUT Command ---
     if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
         const _QB_input = QB.input;
@@ -513,17 +514,55 @@ var IDE = new function() {
                     QB.print(promptText);
                 }
 
-                // Focus hidden input to open mobile keyboard
                 const mobileInput = document.getElementById("mobile-console-input");
                 if (mobileInput) {
-                    mobileInput.style.opacity = "0.01";
+                    // --- START NEW FIX: Make input visually clickable over console ---
+                    
+                    // 1. Temporarily make the input visible and position it over the console area
+                    mobileInput.style.opacity = "1"; 
+                    mobileInput.style.pointerEvents = "auto";
+                    
+                    // Center the input over the console output content area (approx)
+                    const outputRect = _e.outputContent.getBoundingClientRect();
+
+                    // Position it so the user can easily click it, e.g., in the middle of the console view
+                    mobileInput.style.top = `${outputRect.top + outputRect.height / 2}px`;
+                    mobileInput.style.left = `${outputRect.left + outputRect.width / 2}px`;
+                    mobileInput.style.transform = "translate(-50%, -50%)"; // Center it
+                    mobileInput.style.width = "80%";
+                    mobileInput.style.height = "40px";
+                    mobileInput.placeholder = "Tap here to enter input..."; // Give a clear prompt
+                    mobileInput.style.zIndex = "10000"; // Ensure it's on top
+                    mobileInput.style.border = "1px solid #ccc"; // Make it visible
+
+                    // 2. Add a one-time listener to handle the user's tap
+                    const onFocusTap = () => {
+                        // User has tapped the input, which will open the keyboard.
+                        // Now, return it to its original hidden location/style to handle input
+                        mobileInput.style.opacity = "0.01";
+                        mobileInput.style.pointerEvents = "none";
+                        mobileInput.placeholder = ""; 
+                        mobileInput.style.border = "none";
+                        mobileInput.style.width = "50%";
+                        mobileInput.style.height = "30px";
+                        
+                        // Original position (bottom fixed)
+                        mobileInput.style.top = "auto";
+                        mobileInput.style.bottom = "10px";
+                        mobileInput.style.left = "50%";
+                        mobileInput.style.transform = "translateX(-50%)";
+
+                        mobileInput.removeEventListener('focus', onFocusTap);
+                        mobileInput.removeEventListener('touchstart', onFocusTap);
+                    };
+
+                    mobileInput.addEventListener('focus', onFocusTap);
+                    mobileInput.addEventListener('touchstart', onFocusTap); // Fallback for some touch devices
+
+                    // 3. Programmatic focus. This is unreliable, but necessary to show the cursor/placeholder
                     mobileInput.focus();
-                    // FIX: Removed setTimeout to ensure keyboard opens reliably
-                    /*
-                    setTimeout(() => {
-                        mobileInput.style.opacity = "0";
-                    }, 2000);
-                    */
+                    
+                    // --- END NEW FIX ---
                 }
 
                 // Proceed with original QB.input behavior
