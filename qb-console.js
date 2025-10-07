@@ -1,5 +1,5 @@
 // console-qb.js
-// Production-ready _QB runtime (browser only) with mobile-friendly console input
+// Production-ready _QB runtime (browser only) with console input support (multi-line, mobile-friendly)
 
 function _QB() {
     var _rndSeed;
@@ -46,14 +46,19 @@ function _QB() {
     }
 
     // ------------------------
-    // Input handling (mobile-friendly)
+    // Input handling (browser only) - FIXED for multi-line and mobile
     // ------------------------
     async function func_Input(promptText) {
         return new Promise(resolve => {
 
-            if (!promptText || promptText === "") promptText = "? ";
+            if (!promptText || promptText === "") {
+                promptText = "? ";
+            }
 
-            // Ensure console
+            if (typeof IDE !== 'undefined' && typeof IDE.showConsole === 'function') { 
+                IDE.showConsole(); 
+            }
+
             let consoleArea = document.getElementById("qb_console_area");
             if (!consoleArea) {
                 consoleArea = document.createElement("div");
@@ -70,16 +75,15 @@ function _QB() {
             consoleArea.style.overflowY = "auto";
             consoleArea.style.display = "block";
 
-            // Prompt line
             const promptLine = document.createElement("div");
             promptLine.textContent = promptText;
             consoleArea.appendChild(promptLine);
 
-            // Input element
+            // --- MULTI-LINE TEXTAREA ---
             const uniqueId = '_qb_console_input_' + Date.now() + '_' + Math.floor(Math.random()*1000);
-            let inp = document.createElement('input');
+            let inp = document.createElement('textarea');
             inp.id = uniqueId;
-            inp.type = 'text';
+            inp.rows = 4;
             inp.style.width = '100%';
             inp.style.padding = '6px';
             inp.style.margin = '6px 0';
@@ -93,31 +97,30 @@ function _QB() {
             inp.autocapitalize = 'none';
             inp.autocorrect = 'off';
             inp.spellcheck = false;
-            try { inp.setAttribute('enterkeyhint', 'next'); } catch(e){}
             consoleArea.appendChild(inp);
 
-            // Focus + Mobile keyboard fix
             inp.value = '';
             inp.style.display = 'block';
-            requestAnimationFrame(() => {
+
+            setTimeout(() => {
                 inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
                 inp.focus();
-                inp.click();
-            });
+                setTimeout(() => { if (document.activeElement !== inp) inp.focus(); }, 320);
+            }, 160);
 
             let submitted = false;
             let composing = false;
-
             const onCompositionStart = () => { composing = true; };
             const onCompositionEnd = () => { composing = false; };
 
             const onKeyDown = (e) => {
-                if ((e.key === 'Enter' || e.keyCode === 13) && !composing) {
+                if (e.key === 'Enter' && !e.shiftKey) { // Enter submits, Shift+Enter adds newline
+                    if (composing) return;
                     e.preventDefault();
                     if (submitted) return;
                     submitted = true;
 
-                    const val = inp.value.trim();
+                    const val = inp.value;
                     const outLine = document.createElement('div');
                     outLine.textContent = val;
                     consoleArea.appendChild(outLine);
@@ -130,9 +133,12 @@ function _QB() {
                     inp.removeEventListener('compositionend', onCompositionEnd);
 
                     setTimeout(() => {
-                        try { inp.remove(); } catch(e){}
+                        try { inp.remove(); } catch(ex){}
+                        if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') {
+                            IDE.hideConsole();
+                        }
                         resolve(val);
-                    }, 80);
+                    }, 90);
                 } else if (e.key === 'Escape') {
                     e.preventDefault();
                     inp.value = '';
@@ -140,7 +146,10 @@ function _QB() {
                     inp.removeEventListener('keydown', onKeyDown);
                     inp.removeEventListener('compositionstart', onCompositionStart);
                     inp.removeEventListener('compositionend', onCompositionEnd);
-                    try { inp.remove(); } catch(e){}
+                    try { inp.remove(); } catch(ex){}
+                    if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') {
+                        IDE.hideConsole();
+                    }
                     resolve('');
                 }
             };
@@ -154,7 +163,7 @@ function _QB() {
     }
 
     // ------------------------
-    // Fetch helper
+    // Fetch helper (Browser only)
     // ------------------------
     async function sub_Fetch(url, fetchRes) {
         try {
@@ -230,5 +239,6 @@ if (typeof window !== "undefined") {
         }
     }
 }
+
 
 
