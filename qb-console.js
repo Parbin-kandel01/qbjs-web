@@ -109,8 +109,6 @@ function _QB() {
                 consoleArea.appendChild(inp);
             }
             
-            // --- Removed: "Tap to Enter" button and hidden keyboard fallback ---
-
             // --- KEYBOARD ACTIVATION (Aggressive Direct Focus) ---
             inp.value = "";
             inp.style.display = "block"; 
@@ -219,6 +217,8 @@ function _QB() {
     };
 }
 
-// Attach to window
-if (typeof window !== "undefined") { window.QB = _QB(); } // IMPORTANT: Call _QB() to get the instance
+// Attach to window - CRITICAL: Call _QB() to create the instance
+if (typeof window !== "undefined") { 
+    window.QB = _QB(); 
+}
 
