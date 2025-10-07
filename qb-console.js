@@ -1,4 +1,4 @@
-// console-qb.js
+// console-qb.js (or qb.js)
 // Production-ready _QB runtime (browser only) with mobile-friendly hidden input integration
 
 function _QB() {
@@ -9,7 +9,7 @@ function _QB() {
     var _isWaitingForInput = false;
 
     // ------------------------
-    // Runtime Assertions
+    // Runtime Assertions (Preserved)
     // ------------------------
     function _assertParam(param, arg) {
         if (arg === undefined) arg = 1;
@@ -22,7 +22,7 @@ function _QB() {
     }
 
     // ------------------------
-    // Array handling (unchanged)
+    // Array handling (Preserved)
     // ------------------------
     function initArray(dimensions, obj) {
         var a = {};
@@ -50,25 +50,35 @@ function _QB() {
     }
 
     // ------------------------
-    // Input handling (browser only) - MODIFIED
+    // Input handling (browser only) - MODIFIED FOR MOBILE FIX
     // ------------------------
     
-    // Public function exposed to index.html for processing input from the hidden input field
+    /**
+     * Public function exposed to index.html for processing input from the hidden input field.
+     * This is called when the user presses Enter on the mobile keyboard.
+     */
     function processInput(val) {
         if (_inputPromiseResolve) {
             _isWaitingForInput = false;
-            // Display the input in the console, similar to desktop mode
+            
+            // Display the input in the console, simulating the desktop experience.
             const consoleArea = document.getElementById("qb_console_area");
             if (consoleArea) {
+                 // The 'val' is the input the user typed
                  consoleArea.appendChild(document.createElement("div")).textContent = val;
                  consoleArea.scrollTop = consoleArea.scrollHeight;
             }
+            
+            // Resolve the promise, allowing the QBasic program to continue execution!
             _inputPromiseResolve(val);
             _inputPromiseResolve = null;
         }
     }
     
-    // Public function to check if the program is waiting for input
+    /**
+     * Public function to check if the program is currently waiting for input.
+     * Used by the index.html touch event handler to know when to re-focus the input.
+     */
     function isWaitingForInput() {
         return _isWaitingForInput;
     }
@@ -88,6 +98,7 @@ function _QB() {
                 consoleArea.id = "qb_console_area";
                 document.body.appendChild(consoleArea);
             }
+            // ... (console styling remains the same) ...
             consoleArea.style.whiteSpace = "pre-wrap";
             consoleArea.style.fontFamily = "monospace";
             consoleArea.style.backgroundColor = "#000";
@@ -109,9 +120,10 @@ function _QB() {
                 window.QB_startInput();
             }
 
-            // 2. Desktop/Fallback Input (Kept for compatibility, but will be bypassed if hidden input works)
+            // 2. Desktop/Fallback Input (Kept for compatibility for non-graphics modes)
             const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-            if (!isMobile) {
+            // Only use the old direct console input on desktop if the IDE is visible (no graphics mode)
+            if (!isMobile && !document.getElementById('gx-container').style.display) { 
                 const uniqueId = '_qb_console_input_' + Date.now() + '_' + Math.floor(Math.random()*1000);
                 const inp = document.createElement('input');
                 inp.id = uniqueId;
@@ -158,7 +170,7 @@ function _QB() {
     }
 
     // ------------------------
-    // Fetch helper (Browser only) (unchanged)
+    // Fetch helper (Browser only) (Preserved)
     // ------------------------
     async function sub_Fetch(url, fetchRes) {
         try {
@@ -179,7 +191,7 @@ function _QB() {
     }
 
     // ------------------------
-    // Other helpers (unchanged)
+    // Other helpers (Preserved)
     // ------------------------
     function halt() {}
     function halted() { return false; }
@@ -210,7 +222,7 @@ function _QB() {
     return {
         initArray, resizeArray, arrayValue,
         func_Input, func_Fetch, sub_Fetch,
-        processInput, isWaitingForInput, // <-- New functions for communication with index.html
+        processInput, isWaitingForInput, // <-- NEW FUNCTIONS
         halt, halted, autoLimit,
         func_Asc, func_Chr, func_Command,
         func_Left, func_InStr, func__InStrRev,
