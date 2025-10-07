@@ -1,5 +1,5 @@
 // console-qb.js
-// Production-ready _QB runtime (browser only) with console input support (mobile-friendly, Android keyboard fix)
+// Production-ready _QB runtime (browser only) with mobile-friendly console input
 
 function _QB() {
     var _rndSeed;
@@ -46,25 +46,14 @@ function _QB() {
     }
 
     // ------------------------
-    // Input handling (browser only) - FIXED for default prompt and simplified keyboard
-    // This function will be overridden by qbjs-ide.js for mobile devices.
-    // For desktop, this remains the primary input handler.
+    // Input handling (mobile-friendly)
     // ------------------------
     async function func_Input(promptText) {
-        // Browser environment logic only
         return new Promise(resolve => {
-            
-            // FIX: Add default '?' prompt if none is provided (e.g., INPUT N)
-            if (!promptText || promptText === "") {
-                promptText = "? "; 
-            }
 
-            // Console Visibility: Show IDE console before input (Crucial for GX mode)
-            if (typeof IDE !== 'undefined' && typeof IDE.showConsole === 'function') { 
-                IDE.showConsole(); 
-            }
+            if (!promptText || promptText === "") promptText = "? ";
 
-            // Ensure console area
+            // Ensure console
             let consoleArea = document.getElementById("qb_console_area");
             if (!consoleArea) {
                 consoleArea = document.createElement("div");
@@ -72,7 +61,6 @@ function _QB() {
                 document.body.appendChild(consoleArea);
             }
 
-            // Apply essential console styling
             consoleArea.style.whiteSpace = "pre-wrap";
             consoleArea.style.fontFamily = "monospace";
             consoleArea.style.backgroundColor = "#000";
@@ -82,83 +70,91 @@ function _QB() {
             consoleArea.style.overflowY = "auto";
             consoleArea.style.display = "block";
 
-            // Append the prompt line
+            // Prompt line
             const promptLine = document.createElement("div");
             promptLine.textContent = promptText;
             consoleArea.appendChild(promptLine);
 
-            // Create or reuse input
-            let inp = document.getElementById("_qb_console_input");
-            if (!inp) {
-                inp = document.createElement("input");
-                inp.id = "_qb_console_input";
-                inp.type = "text";
-                inp.style.width = "100%";
-                inp.style.padding = "6px";
-                inp.style.margin = "6px 0";
-                inp.style.border = "1px solid #555";
-                inp.style.background = "#222";
-                inp.style.color = "#fff";
-                inp.style.fontFamily = "monospace";
-                inp.style.fontSize = "1em";
-                inp.style.boxSizing = "border-box";
-                inp.autocomplete = "off";
-                inp.autocapitalize = "none";
-                inp.autocorrect = "off";
-                inp.spellcheck = false;
-                consoleArea.appendChild(inp);
-            }
-            
-            // --- KEYBOARD ACTIVATION (Aggressive Direct Focus) ---
-            inp.value = "";
-            inp.style.display = "block"; 
+            // Input element
+            const uniqueId = '_qb_console_input_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+            let inp = document.createElement('input');
+            inp.id = uniqueId;
+            inp.type = 'text';
+            inp.style.width = '100%';
+            inp.style.padding = '6px';
+            inp.style.margin = '6px 0';
+            inp.style.border = '1px solid #555';
+            inp.style.background = '#222';
+            inp.style.color = '#fff';
+            inp.style.fontFamily = 'monospace';
+            inp.style.fontSize = '1em';
+            inp.style.boxSizing = 'border-box';
+            inp.autocomplete = 'off';
+            inp.autocapitalize = 'none';
+            inp.autocorrect = 'off';
+            inp.spellcheck = false;
+            try { inp.setAttribute('enterkeyhint', 'next'); } catch(e){}
+            consoleArea.appendChild(inp);
 
-            // Use a slight delay to ensure the console is rendered before focusing
-            setTimeout(() => {
+            // Focus + Mobile keyboard fix
+            inp.value = '';
+            inp.style.display = 'block';
+            requestAnimationFrame(() => {
                 inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                inp.focus(); 
-            }, 100); 
-            // --------------------------------------------------------
+                inp.focus();
+                inp.click();
+            });
+
+            let submitted = false;
+            let composing = false;
+
+            const onCompositionStart = () => { composing = true; };
+            const onCompositionEnd = () => { composing = false; };
 
             const onKeyDown = (e) => {
-                if (e.key === "Enter") {
+                if ((e.key === 'Enter' || e.keyCode === 13) && !composing) {
                     e.preventDefault();
-                    const val = inp.value;
-                    const outLine = document.createElement("div");
+                    if (submitted) return;
+                    submitted = true;
+
+                    const val = inp.value.trim();
+                    const outLine = document.createElement('div');
                     outLine.textContent = val;
                     consoleArea.appendChild(outLine);
-                    inp.value = "";
+
+                    inp.value = '';
                     inp.blur();
-                    
-                    // Cleanup: Hide console after input is done
-                    if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') { 
-                        IDE.hideConsole(); 
-                    }
-                    
-                    inp.removeEventListener("keydown", onKeyDown);
-                    resolve(val);
-                } else if (e.key === "Escape") {
+
+                    inp.removeEventListener('keydown', onKeyDown);
+                    inp.removeEventListener('compositionstart', onCompositionStart);
+                    inp.removeEventListener('compositionend', onCompositionEnd);
+
+                    setTimeout(() => {
+                        try { inp.remove(); } catch(e){}
+                        resolve(val);
+                    }, 80);
+                } else if (e.key === 'Escape') {
                     e.preventDefault();
-                    inp.value = "";
+                    inp.value = '';
                     inp.blur();
-                    
-                    // Cleanup: Hide console after input is done
-                    if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') { 
-                        IDE.hideConsole(); 
-                    }
-                    
-                    inp.removeEventListener("keydown", onKeyDown);
-                    resolve("");
+                    inp.removeEventListener('keydown', onKeyDown);
+                    inp.removeEventListener('compositionstart', onCompositionStart);
+                    inp.removeEventListener('compositionend', onCompositionEnd);
+                    try { inp.remove(); } catch(e){}
+                    resolve('');
                 }
             };
 
-            inp.addEventListener("keydown", onKeyDown);
-            promptLine.scrollIntoView({ behavior: "smooth", block: "end" });
+            inp.addEventListener('compositionstart', onCompositionStart);
+            inp.addEventListener('compositionend', onCompositionEnd);
+            inp.addEventListener('keydown', onKeyDown);
+
+            promptLine.scrollIntoView({ behavior: 'smooth', block: 'end' });
         });
     }
 
     // ------------------------
-    // Fetch helper (Browser only) - Node logic removed
+    // Fetch helper
     // ------------------------
     async function sub_Fetch(url, fetchRes) {
         try {
@@ -177,7 +173,7 @@ function _QB() {
         await QB.sub_Fetch(url, fetchRes);
         return fetchRes;
     }
-    
+
     // ------------------------
     // Other helpers
     // ------------------------
@@ -217,8 +213,22 @@ function _QB() {
     };
 }
 
-// Attach to window - CRITICAL: Call _QB() to create the instance
-if (typeof window !== "undefined") { 
-    window.QB = _QB(); 
+// Attach to window
+if (typeof window !== "undefined") {
+    if (!window.QB) {
+        window.QB = _QB();
+    } else {
+        const _newQB = _QB();
+        for (const k in _newQB) {
+            try {
+                if (k === 'func_Input') {
+                    if (!window.QB.func_Input) window.QB.func_Input = _newQB.func_Input;
+                } else if (window.QB[k] === undefined) {
+                    window.QB[k] = _newQB[k];
+                }
+            } catch (ex) {}
+        }
+    }
 }
+
 
