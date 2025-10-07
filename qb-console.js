@@ -48,6 +48,10 @@ function _QB() {
     // ------------------------
     // Input handling (browser only)
     // ------------------------
+    
+    // Global state to manage mobile input
+    var _mobileInputResolve = null;
+
     async function func_Input(promptText) {
         _assertParam(promptText);
 
@@ -103,20 +107,27 @@ function _QB() {
                 inp.addEventListener('compositionstart', () => composing = true);
                 inp.addEventListener('compositionend', () => composing = false);
 
+                // FIX: Added resolve(val) to complete the Promise
                 inp.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter') {
                         if (composing) return;
                         e.preventDefault();
                         const val = inp.value;
-                        consoleArea.appendChild(document.createElement("div")).textContent = val;
+                        // Display the input value as a new line
+                        consoleArea.appendChild(document.createElement("div")).textContent = val; 
                         inp.remove();
-                        resolve(val);
+                        resolve(val); // <--- THIS WAS THE MISSING STEP
                     }
                 });
 
             } else {
-                // Mobile: visible textarea
+                // Mobile: visible input container
+                _mobileInputResolve = resolve;
+
                 let mobileContainer = document.getElementById("qb_mobile_input_container");
+                let textarea = document.getElementById("qb_mobile_input_textarea");
+                let submitBtn = document.getElementById("qb_mobile_input_submit_btn");
+
                 if (!mobileContainer) {
                     mobileContainer = document.createElement("div");
                     mobileContainer.id = "qb_mobile_input_container";
@@ -129,10 +140,11 @@ function _QB() {
                     mobileContainer.style.zIndex = 9999;
                     document.body.appendChild(mobileContainer);
 
-                    const textarea = document.createElement("textarea");
+                    textarea = document.createElement("textarea");
                     textarea.id = "qb_mobile_input_textarea";
+                    textarea.rows = 2; // Better for multi-line but still simple
                     textarea.style.width = "100%";
-                    textarea.style.height = "80px";
+                    textarea.style.height = "auto";
                     textarea.style.fontFamily = "monospace";
                     textarea.style.color = "#fff";
                     textarea.style.background = "#222";
@@ -140,32 +152,62 @@ function _QB() {
                     textarea.style.padding = "6px";
                     textarea.style.boxSizing = "border-box";
                     mobileContainer.appendChild(textarea);
-
-                    const submitBtn = document.createElement("button");
-                    submitBtn.textContent = "Submit";
+                    
+                    submitBtn = document.createElement("button");
+                    submitBtn.id = "qb_mobile_input_submit_btn";
+                    submitBtn.textContent = "Submit (Enter)";
                     submitBtn.style.marginTop = "5px";
                     submitBtn.style.padding = "6px 12px";
                     submitBtn.style.fontFamily = "monospace";
+                    submitBtn.style.cursor = "pointer";
                     mobileContainer.appendChild(submitBtn);
 
-                    submitBtn.addEventListener("click", () => {
-                        const val = textarea.value;
-                        consoleArea.appendChild(document.createElement("div")).textContent = val;
-                        mobileContainer.style.display = "none";
-                        resolve(val);
+                    // Re-attached single listener to submit button
+                    submitBtn.addEventListener("click", _processMobileInput);
+                    
+                    // Added Enter key listener for the mobile textarea (if a hardware keyboard is used)
+                    textarea.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            _processMobileInput();
+                        }
                     });
                 }
 
                 mobileContainer.style.display = "block";
-                const textarea = document.getElementById("qb_mobile_input_textarea");
                 textarea.value = "";
-                textarea.focus({ preventScroll: true });
+                textarea.focus();
             }
 
             // Scroll console to bottom
             consoleArea.scrollTop = consoleArea.scrollHeight;
         });
     }
+    
+    // New helper to process input from mobile (Submit button or Enter key on mobile textarea)
+    function _processMobileInput() {
+        if (!_mobileInputResolve) return;
+
+        const consoleArea = document.getElementById("qb_console_area");
+        const mobileContainer = document.getElementById("qb_mobile_input_container");
+        const textarea = document.getElementById("qb_mobile_input_textarea");
+
+        const val = textarea.value;
+        
+        // Display the input value
+        consoleArea.appendChild(document.createElement("div")).textContent = val;
+        
+        mobileContainer.style.display = "none";
+        textarea.blur(); // Hide keyboard
+
+        // Resolve the stored Promise and clear the resolver
+        _mobileInputResolve(val); 
+        _mobileInputResolve = null;
+        
+        // Scroll console to bottom
+        consoleArea.scrollTop = consoleArea.scrollHeight;
+    }
+
 
     // ------------------------
     // Fetch helper (Browser only)
