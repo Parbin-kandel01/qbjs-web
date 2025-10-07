@@ -4,15 +4,15 @@
     <title>QBJS</title>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="manifest.json"></link>
-    <link rel="stylesheet" href="qbjs-ide.css"></link>
-    <link rel="stylesheet" href="codemirror/codemirror.min.css"></link>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="qbjs-ide.css">
+    <link rel="stylesheet" href="codemirror/codemirror.min.css">
     <link rel="stylesheet" href="codemirror/dialog.css">
     <link rel="stylesheet" href="codemirror/matchesonscrollbar.css">
-    <link id="ide-theme" rel="stylesheet" href="codemirror/themes/qbjs.css"></link>
-    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico"></link>
+    <link id="ide-theme" rel="stylesheet" href="codemirror/themes/qbjs.css">
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
 
-    <!-- Codemirror and utils -->
+    <!-- CodeMirror and utilities -->
     <script src="codemirror/codemirror.min.js"></script>
     <script src="codemirror/qb-lang.js"></script>
     <script src="codemirror/active-line.js"></script>
@@ -22,7 +22,7 @@
     <script src="util/pako.2.1.0.min.js"></script>
     <script src="util/hexy.js"></script>
 
-    <!-- Codemirror languages -->
+    <!-- Languages -->
     <script src="codemirror/lang/css.js"></script>
     <script src="codemirror/lang/clike.js"></script>
     <script src="codemirror/lang/javascript.js"></script>
@@ -34,13 +34,13 @@
     <script src="codemirror/lang/htmlmixed.js"></script>
     <script src="codemirror/lang/php.js"></script>
 
+    <!-- Dialogs & search -->
     <script src="codemirror/dialog.js"></script>
     <script src="codemirror/searchcursor.js"></script>
     <script src="codemirror/search.js"></script>
     <script src="codemirror/annotatescrollbar.js"></script>
     <script src="codemirror/matchesonscrollbar.js"></script>
     <script src="codemirror/vim.js"></script>
-
     <script src="util/showdown.min.js"></script>
 
     <style>
@@ -75,105 +75,85 @@
         #touch-left { top: 35px; left: 0; }
         #touch-right { top: 35px; left: 140px; }
         #touch-action { bottom: 35px; right: 0; border-radius: 10px; width: 80px; }
-
-        /* Mobile input fix */
-        #mobile-input {
-            display: none;
-            position: absolute;
-            bottom: 10%;
-            left: 10%;
-            width: 80%;
-            height: 200px;
-            font-size: 16px;
-            z-index: 2000;
-        }
     </style>
 </head>
 <body style="display:none">
-    <!-- Your existing HTML: toolbar, code-container, game-container, dialogs ... -->
+    <!-- Toolbar and code container (same as before) -->
     <div id="toolbar"> ... </div>
     <div id="code-container"> ... </div>
-    <div id="game-container"> ... </div>
+    <div id="slider"></div>
+    <div id="game-container">
+        <div id="gx-container">
+            <a href="javascript:runProgram()" id="gx-load-screen">&nbsp;</a>
+
+            <!-- FIXED MOBILE INPUT -->
+            <input 
+                id="gx-hidden-input" 
+                type="text" 
+                inputmode="text"
+                autocapitalize="none"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Hidden game input"
+                style="position:absolute; left:0; top:0; width:1px; height:1px; opacity:0; z-index:9999;"
+            />
+        </div>
+
+        <div id="touch-controls"> ... </div>
+        <div id="vslider"></div>
+        <div id="output-container"> ... </div>
+    </div>
     <div id="gx-footer"></div>
-
-    <!-- Hidden desktop input (preserve original logic) -->
-    <input id="gx-hidden-input" type="text" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;z-index:-1;opacity:1;pointer-events:auto;">
-
-    <!-- New mobile textarea for multi-line input -->
-    <textarea id="mobile-input" placeholder="Enter input..." aria-label="Mobile multi-line input"></textarea>
 
     <form style="display:none">
         <input id="file-input" type="file" accept=".bas, .zip">
     </form>
 
-    <!-- Dialogs ... preserve all your dialogs here ... -->
-
-    <script src="vfs.js"></script>
-    <script src="gx/gx.js"></script>
-    <script src="qb.js"></script>
-    <script src="qb2js.js"></script>
-    <script src="githelp.js"></script>
-    <script src="qbjs-ide.js"></script>
-
-    <script>
-    const delay = ms => new Promise(res => setTimeout(res, ms));
-
-    window.onload = function() {
-        // Initialize QB and IDE
-        if (typeof QB !== 'undefined' && typeof QB.init === 'function') QB.init();
-        if (typeof IDE !== 'undefined' && typeof IDE.init === 'function') IDE.init();
-        else document.body.style.display = 'block';
-
-        // Load initial code if exists
-        if (window.initialQBasicCode) {
-            const codeToLoad = window.initialQBasicCode;
-            setTimeout(() => {
-                let codeExecuted = false;
-                if (typeof window.loadCode === 'function') {
-                    window.loadCode(codeToLoad);
-                    codeExecuted = true;
-                } else if (typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
-                    IDE.loadCode(codeToLoad);
-                    codeExecuted = true;
-                }
-                if (!codeExecuted) console.error("Cannot find valid loadCode function.");
-                delete window.initialQBasicCode;
-            }, 500);
-        }
-    };
-
-    /********** MOBILE MULTI-LINE INPUT FIX **********/
-    (function() {
-        const mobileInput = document.getElementById('mobile-input');
-        const hiddenInput = document.getElementById('gx-hidden-input');
-
-        // Override GX input function
-        if (typeof GX !== 'undefined') {
-            const originalInputFunc = GX.input;
-            GX.input = function(promptText, callback) {
-                if (/Mobi|Android/i.test(navigator.userAgent)) {
-                    // Show mobile textarea
-                    mobileInput.style.display = 'block';
-                    mobileInput.value = '';
-                    mobileInput.focus();
-
-                    mobileInput.onkeydown = function(e) {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            const value = mobileInput.value;
-                            mobileInput.style.display = 'none';
-                            mobileInput.blur();
-                            callback(value);
-                        }
-                    };
-                } else {
-                    // Desktop: use original hidden input
-                    originalInputFunc(promptText, callback);
-                }
-            };
-        }
-    })();
-    </script>
+    <!-- All dialogs (share, options, methods, about, etc.) remain unchanged -->
+    <dialog id="share-dialog"> ... </dialog>
+    <dialog id="prog-sel-dialog"> ... </dialog>
+    <dialog id="options-dialog"> ... </dialog>
+    <dialog id="methods-dialog"> ... </dialog>
+    <dialog id="about-dialog"> ... </dialog>
 </body>
+
+<script src="vfs.js"></script>
+<script src="gx/gx.js"></script>
+<script src="qb.js"></script>
+<script src="qb2js.js"></script>
+<script src="githelp.js"></script>
+<script src="qbjs-ide.js"></script>
+
+<script>
+window.onload = function() {
+    if (typeof QB !== 'undefined' && typeof QB.init === 'function') QB.init();
+    if (typeof IDE !== 'undefined' && typeof IDE.init === 'function') IDE.init();
+    else document.body.style.display = 'block';
+
+    // Handle initial code
+    if (window.initialQBasicCode) {
+        const codeToLoad = window.initialQBasicCode;
+        setTimeout(() => {
+            let codeExecuted = false;
+            if (typeof window.loadCode === 'function' && !window.loadCode.toString().includes('initialQBasicCode')) {
+                window.loadCode(codeToLoad); codeExecuted = true;
+            } else if (typeof IDE !== 'undefined' && typeof IDE.loadCode === 'function') {
+                IDE.loadCode(codeToLoad); codeExecuted = true;
+            }
+            if (!codeExecuted) console.error("ERROR: Cannot find valid loadCode function.");
+            delete window.initialQBasicCode;
+        }, 500);
+    }
+
+    // Focus hidden input on mobile to open keyboard reliably
+    const hiddenInput = document.getElementById('gx-hidden-input');
+    if (/Mobi|Android/i.test(navigator.userAgent)) {
+        document.addEventListener('touchstart', () => {
+            hiddenInput.focus({preventScroll:true});
+        });
+    }
+};
+</script>
 </html>
+
 
