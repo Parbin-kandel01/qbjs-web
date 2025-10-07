@@ -225,9 +225,46 @@ var IDE = new function() {
 
                     const handleKeypress = (e) => {
                         if (e.key === 'Enter') {
-                            e.preventDefault(); // Prevent default Enter behavior
-                            handleSubmit();
-                        }
+        e.preventDefault();
+
+        const val = inputElement.value.trim();
+        if (val === "" && promptText.toLowerCase().includes("input")) {
+            return; // prevent empty accidental enter
+        }
+
+        // Immediately output entered value
+        const outLine = document.createElement("div");
+        outLine.textContent = val;
+        consoleArea.appendChild(outLine);
+
+        // Hide current input UI
+        inputElement.style.opacity = '0';
+        inputElement.style.pointerEvents = 'none';
+        inputElement.style.top = '-100px';
+        inputElement.style.display = 'none';
+        inputElement.blur();
+
+        // Remove old listeners
+        inputElement.removeEventListener('keypress', handleKeypress);
+        inputElement.removeEventListener('blur', handleBlur);
+
+        // Resolve to QB so that it requests the next input
+        resolve(val);
+
+        // Wait a tiny bit before showing next input (for multiple INPUTs)
+        setTimeout(() => {
+            // If the next INPUT prompt appears immediately,
+            // automatically focus the hidden field again.
+            if (isMobileDevice()) {
+                setTimeout(() => {
+                    inputElement.style.display = 'block';
+                    inputElement.style.opacity = '1';
+                    inputElement.style.pointerEvents = 'auto';
+                    inputElement.focus();
+                }, 250);
+            }
+        }, 100);
+    }
                     };
 
                     const handleBlur = () => {
