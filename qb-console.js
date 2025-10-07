@@ -1,5 +1,5 @@
 // console-qb.js
-// Production-ready _QB runtime (browser only) with console input support (multi-line, mobile-friendly)
+// Production-ready _QB runtime (browser only) with console input support (mobile-friendly, Android/iOS keyboard fix)
 
 function _QB() {
     var _rndSeed;
@@ -46,26 +46,22 @@ function _QB() {
     }
 
     // ------------------------
-    // Input handling (browser only) - FIXED for multi-line and mobile
+    // Input handling (browser only)
     // ------------------------
     async function func_Input(promptText) {
+        _assertParam(promptText);
+
         return new Promise(resolve => {
+            // Detect mobile
+            const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
-            if (!promptText || promptText === "") {
-                promptText = "? ";
-            }
-
-            if (typeof IDE !== 'undefined' && typeof IDE.showConsole === 'function') { 
-                IDE.showConsole(); 
-            }
-
+            // Ensure console area
             let consoleArea = document.getElementById("qb_console_area");
             if (!consoleArea) {
                 consoleArea = document.createElement("div");
                 consoleArea.id = "qb_console_area";
                 document.body.appendChild(consoleArea);
             }
-
             consoleArea.style.whiteSpace = "pre-wrap";
             consoleArea.style.fontFamily = "monospace";
             consoleArea.style.backgroundColor = "#000";
@@ -75,90 +71,99 @@ function _QB() {
             consoleArea.style.overflowY = "auto";
             consoleArea.style.display = "block";
 
+            // Append prompt line
             const promptLine = document.createElement("div");
-            promptLine.textContent = promptText;
+            promptLine.textContent = promptText || "? ";
             consoleArea.appendChild(promptLine);
 
-            // --- MULTI-LINE TEXTAREA ---
-            const uniqueId = '_qb_console_input_' + Date.now() + '_' + Math.floor(Math.random()*1000);
-            let inp = document.createElement('textarea');
-            inp.id = uniqueId;
-            inp.rows = 4;
-            inp.style.width = '100%';
-            inp.style.padding = '6px';
-            inp.style.margin = '6px 0';
-            inp.style.border = '1px solid #555';
-            inp.style.background = '#222';
-            inp.style.color = '#fff';
-            inp.style.fontFamily = 'monospace';
-            inp.style.fontSize = '1em';
-            inp.style.boxSizing = 'border-box';
-            inp.autocomplete = 'off';
-            inp.autocapitalize = 'none';
-            inp.autocorrect = 'off';
-            inp.spellcheck = false;
-            consoleArea.appendChild(inp);
+            if (!isMobile) {
+                // Desktop input
+                const uniqueId = '_qb_console_input_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+                const inp = document.createElement('input');
+                inp.id = uniqueId;
+                inp.type = 'text';
+                inp.style.width = '100%';
+                inp.style.padding = '6px';
+                inp.style.margin = '6px 0';
+                inp.style.border = '1px solid #555';
+                inp.style.background = '#222';
+                inp.style.color = '#fff';
+                inp.style.fontFamily = 'monospace';
+                inp.style.fontSize = '1em';
+                inp.style.boxSizing = 'border-box';
+                inp.autocomplete = 'off';
+                inp.autocapitalize = 'none';
+                inp.autocorrect = 'off';
+                inp.spellcheck = false;
 
-            inp.value = '';
-            inp.style.display = 'block';
-
-            setTimeout(() => {
-                inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                consoleArea.appendChild(inp);
                 inp.focus();
-                setTimeout(() => { if (document.activeElement !== inp) inp.focus(); }, 320);
-            }, 160);
 
-            let submitted = false;
-            let composing = false;
-            const onCompositionStart = () => { composing = true; };
-            const onCompositionEnd = () => { composing = false; };
+                let composing = false;
+                inp.addEventListener('compositionstart', () => composing = true);
+                inp.addEventListener('compositionend', () => composing = false);
 
-            const onKeyDown = (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { // Enter submits, Shift+Enter adds newline
-                    if (composing) return;
-                    e.preventDefault();
-                    if (submitted) return;
-                    submitted = true;
-
-                    const val = inp.value;
-                    const outLine = document.createElement('div');
-                    outLine.textContent = val;
-                    consoleArea.appendChild(outLine);
-
-                    inp.value = '';
-                    inp.blur();
-
-                    inp.removeEventListener('keydown', onKeyDown);
-                    inp.removeEventListener('compositionstart', onCompositionStart);
-                    inp.removeEventListener('compositionend', onCompositionEnd);
-
-                    setTimeout(() => {
-                        try { inp.remove(); } catch(ex){}
-                        if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') {
-                            IDE.hideConsole();
-                        }
+                inp.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        if (composing) return;
+                        e.preventDefault();
+                        const val = inp.value;
+                        consoleArea.appendChild(document.createElement("div")).textContent = val;
+                        inp.remove();
                         resolve(val);
-                    }, 90);
-                } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    inp.value = '';
-                    inp.blur();
-                    inp.removeEventListener('keydown', onKeyDown);
-                    inp.removeEventListener('compositionstart', onCompositionStart);
-                    inp.removeEventListener('compositionend', onCompositionEnd);
-                    try { inp.remove(); } catch(ex){}
-                    if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') {
-                        IDE.hideConsole();
                     }
-                    resolve('');
+                });
+
+            } else {
+                // Mobile: visible textarea
+                let mobileContainer = document.getElementById("qb_mobile_input_container");
+                if (!mobileContainer) {
+                    mobileContainer = document.createElement("div");
+                    mobileContainer.id = "qb_mobile_input_container";
+                    mobileContainer.style.position = "fixed";
+                    mobileContainer.style.bottom = "0";
+                    mobileContainer.style.left = "0";
+                    mobileContainer.style.right = "0";
+                    mobileContainer.style.backgroundColor = "#000";
+                    mobileContainer.style.padding = "8px";
+                    mobileContainer.style.zIndex = 9999;
+                    document.body.appendChild(mobileContainer);
+
+                    const textarea = document.createElement("textarea");
+                    textarea.id = "qb_mobile_input_textarea";
+                    textarea.style.width = "100%";
+                    textarea.style.height = "80px";
+                    textarea.style.fontFamily = "monospace";
+                    textarea.style.color = "#fff";
+                    textarea.style.background = "#222";
+                    textarea.style.border = "1px solid #555";
+                    textarea.style.padding = "6px";
+                    textarea.style.boxSizing = "border-box";
+                    mobileContainer.appendChild(textarea);
+
+                    const submitBtn = document.createElement("button");
+                    submitBtn.textContent = "Submit";
+                    submitBtn.style.marginTop = "5px";
+                    submitBtn.style.padding = "6px 12px";
+                    submitBtn.style.fontFamily = "monospace";
+                    mobileContainer.appendChild(submitBtn);
+
+                    submitBtn.addEventListener("click", () => {
+                        const val = textarea.value;
+                        consoleArea.appendChild(document.createElement("div")).textContent = val;
+                        mobileContainer.style.display = "none";
+                        resolve(val);
+                    });
                 }
-            };
 
-            inp.addEventListener('compositionstart', onCompositionStart);
-            inp.addEventListener('compositionend', onCompositionEnd);
-            inp.addEventListener('keydown', onKeyDown);
+                mobileContainer.style.display = "block";
+                const textarea = document.getElementById("qb_mobile_input_textarea");
+                textarea.value = "";
+                textarea.focus({ preventScroll: true });
+            }
 
-            promptLine.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            // Scroll console to bottom
+            consoleArea.scrollTop = consoleArea.scrollHeight;
         });
     }
 
@@ -204,41 +209,28 @@ function _QB() {
     function func__Round(v){_assertNumber(v);return (v<0)?-Math.round(-v):Math.round(v);}
     function func_Rnd(n){if(n===undefined)n=1;if(n!==0){if(n<0){const buf=new ArrayBuffer(8);const view=new DataView(buf);view.setFloat32(0,n,false);var m=view.getUint32(0);_rndSeed=(m&0xFFFFFF)+((m&0xFF000000)>>>24);} _rndSeed=(_rndSeed*16598013+12820163)&0xFFFFFF;} return _rndSeed/0x1000000;}
     function func_RTrim(v){_assertParam(v);return String(v).trimEnd();}
-    function func_Str(v){return String(v);}
-    function func_String(c,s){_assertNumber(c);_assertParam(s);if(typeof s==="string")s=s.substring(0,1);else s=String.fromCharCode(s);return "".padStart(c,s);}
-    function func__Trim(v){_assertParam(v);return v.trim();}
-    function func_UBound(a,d){_assertParam(a);if(d===undefined)d=1;else _assertNumber(d);return a._dimensions[d-1].u;}
+    function func_Space(v){_assertNumber(v);return " ".repeat(v);}
+    function func_Str(v){_assertParam(v);return String(v);}
     function func_UCase(v){_assertParam(v);return String(v).toUpperCase();}
+    function func_Val(v){_assertParam(v);return Number(v)||0;}
 
     // ------------------------
-    // Public API
+    // Expose public API
     // ------------------------
     return {
-        initArray, resizeArray, arrayValue, autoLimit, halt, halted,
-        func_Input, func_Asc, func_Chr, func_Command, func_Fetch, sub_Fetch,
-        func_InStr, func__InStrRev, func_LCase, func_Left, func_Len, func_LTrim,
-        func_Mid, func_Right, func__Round, func_Rnd, func_RTrim, func_Str, func_String,
-        func__Trim, func_UBound, func_UCase
+        initArray, resizeArray, arrayValue,
+        func_Input, func_Fetch, sub_Fetch,
+        halt, halted, autoLimit,
+        func_Asc, func_Chr, func_Command,
+        func_Left, func_InStr, func__InStrRev,
+        func_LCase, func_Len, func_LTrim, func_Mid, func_Right, func__Round,
+        func_Rnd, func_RTrim, func_Space, func_Str, func_UCase, func_Val
     };
 }
 
-// Attach to window
-if (typeof window !== "undefined") {
-    if (!window.QB) {
-        window.QB = _QB();
-    } else {
-        const _newQB = _QB();
-        for (const k in _newQB) {
-            try {
-                if (k === 'func_Input') {
-                    if (!window.QB.func_Input) window.QB.func_Input = _newQB.func_Input;
-                } else if (window.QB[k] === undefined) {
-                    window.QB[k] = _newQB[k];
-                }
-            } catch (ex) {}
-        }
-    }
-}
+// Create singleton instance
+const QB = _QB();
+
 
 
 
