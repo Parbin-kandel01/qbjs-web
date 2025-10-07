@@ -1,8 +1,12 @@
 // console-qb.js
-// Production-ready _QB runtime (browser only) with console input support (mobile-friendly, Android/iOS keyboard fix)
+// Production-ready _QB runtime (browser only) with mobile-friendly hidden input integration
 
 function _QB() {
     var _rndSeed;
+
+    // Global state for mobile/console input management
+    var _inputPromiseResolve = null;
+    var _isWaitingForInput = false;
 
     // ------------------------
     // Runtime Assertions
@@ -18,7 +22,7 @@ function _QB() {
     }
 
     // ------------------------
-    // Array handling
+    // Array handling (unchanged)
     // ------------------------
     function initArray(dimensions, obj) {
         var a = {};
@@ -46,20 +50,38 @@ function _QB() {
     }
 
     // ------------------------
-    // Input handling (browser only)
+    // Input handling (browser only) - MODIFIED
     // ------------------------
     
-    // Global state to manage mobile input
-    var _mobileInputResolve = null;
+    // Public function exposed to index.html for processing input from the hidden input field
+    function processInput(val) {
+        if (_inputPromiseResolve) {
+            _isWaitingForInput = false;
+            // Display the input in the console, similar to desktop mode
+            const consoleArea = document.getElementById("qb_console_area");
+            if (consoleArea) {
+                 consoleArea.appendChild(document.createElement("div")).textContent = val;
+                 consoleArea.scrollTop = consoleArea.scrollHeight;
+            }
+            _inputPromiseResolve(val);
+            _inputPromiseResolve = null;
+        }
+    }
+    
+    // Public function to check if the program is waiting for input
+    function isWaitingForInput() {
+        return _isWaitingForInput;
+    }
+
 
     async function func_Input(promptText) {
         _assertParam(promptText);
 
         return new Promise(resolve => {
-            // Detect mobile
-            const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-
-            // Ensure console area
+            _isWaitingForInput = true;
+            _inputPromiseResolve = resolve;
+            
+            // Ensure console area (unchanged console setup)
             let consoleArea = document.getElementById("qb_console_area");
             if (!consoleArea) {
                 consoleArea = document.createElement("div");
@@ -79,9 +101,17 @@ function _QB() {
             const promptLine = document.createElement("div");
             promptLine.textContent = promptText || "? ";
             consoleArea.appendChild(promptLine);
+            
+            // --- Unified Input Handling ---
 
+            // 1. Attempt to run mobile/hidden input handler (from index.html)
+            if (typeof window.QB_startInput === 'function') {
+                window.QB_startInput();
+            }
+
+            // 2. Desktop/Fallback Input (Kept for compatibility, but will be bypassed if hidden input works)
+            const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
             if (!isMobile) {
-                // Desktop input
                 const uniqueId = '_qb_console_input_' + Date.now() + '_' + Math.floor(Math.random()*1000);
                 const inp = document.createElement('input');
                 inp.id = uniqueId;
@@ -107,110 +137,28 @@ function _QB() {
                 inp.addEventListener('compositionstart', () => composing = true);
                 inp.addEventListener('compositionend', () => composing = false);
 
-                // FIX: Added resolve(val) to complete the Promise
                 inp.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter') {
                         if (composing) return;
                         e.preventDefault();
                         const val = inp.value;
-                        // Display the input value as a new line
-                        consoleArea.appendChild(document.createElement("div")).textContent = val; 
+                        consoleArea.appendChild(document.createElement("div")).textContent = val;
                         inp.remove();
-                        resolve(val); // <--- THIS WAS THE MISSING STEP
+                        _isWaitingForInput = false;
+                        _inputPromiseResolve = null; // Clear global state
+                        resolve(val);
                     }
                 });
-
-            } else {
-                // Mobile: visible input container
-                _mobileInputResolve = resolve;
-
-                let mobileContainer = document.getElementById("qb_mobile_input_container");
-                let textarea = document.getElementById("qb_mobile_input_textarea");
-                let submitBtn = document.getElementById("qb_mobile_input_submit_btn");
-
-                if (!mobileContainer) {
-                    mobileContainer = document.createElement("div");
-                    mobileContainer.id = "qb_mobile_input_container";
-                    mobileContainer.style.position = "fixed";
-                    mobileContainer.style.bottom = "0";
-                    mobileContainer.style.left = "0";
-                    mobileContainer.style.right = "0";
-                    mobileContainer.style.backgroundColor = "#000";
-                    mobileContainer.style.padding = "8px";
-                    mobileContainer.style.zIndex = 9999;
-                    document.body.appendChild(mobileContainer);
-
-                    textarea = document.createElement("textarea");
-                    textarea.id = "qb_mobile_input_textarea";
-                    textarea.rows = 2; // Better for multi-line but still simple
-                    textarea.style.width = "100%";
-                    textarea.style.height = "auto";
-                    textarea.style.fontFamily = "monospace";
-                    textarea.style.color = "#fff";
-                    textarea.style.background = "#222";
-                    textarea.style.border = "1px solid #555";
-                    textarea.style.padding = "6px";
-                    textarea.style.boxSizing = "border-box";
-                    mobileContainer.appendChild(textarea);
-                    
-                    submitBtn = document.createElement("button");
-                    submitBtn.id = "qb_mobile_input_submit_btn";
-                    submitBtn.textContent = "Submit (Enter)";
-                    submitBtn.style.marginTop = "5px";
-                    submitBtn.style.padding = "6px 12px";
-                    submitBtn.style.fontFamily = "monospace";
-                    submitBtn.style.cursor = "pointer";
-                    mobileContainer.appendChild(submitBtn);
-
-                    // Re-attached single listener to submit button
-                    submitBtn.addEventListener("click", _processMobileInput);
-                    
-                    // Added Enter key listener for the mobile textarea (if a hardware keyboard is used)
-                    textarea.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            _processMobileInput();
-                        }
-                    });
-                }
-
-                mobileContainer.style.display = "block";
-                textarea.value = "";
-                textarea.focus();
             }
+
 
             // Scroll console to bottom
             consoleArea.scrollTop = consoleArea.scrollHeight;
         });
     }
-    
-    // New helper to process input from mobile (Submit button or Enter key on mobile textarea)
-    function _processMobileInput() {
-        if (!_mobileInputResolve) return;
-
-        const consoleArea = document.getElementById("qb_console_area");
-        const mobileContainer = document.getElementById("qb_mobile_input_container");
-        const textarea = document.getElementById("qb_mobile_input_textarea");
-
-        const val = textarea.value;
-        
-        // Display the input value
-        consoleArea.appendChild(document.createElement("div")).textContent = val;
-        
-        mobileContainer.style.display = "none";
-        textarea.blur(); // Hide keyboard
-
-        // Resolve the stored Promise and clear the resolver
-        _mobileInputResolve(val); 
-        _mobileInputResolve = null;
-        
-        // Scroll console to bottom
-        consoleArea.scrollTop = consoleArea.scrollHeight;
-    }
-
 
     // ------------------------
-    // Fetch helper (Browser only)
+    // Fetch helper (Browser only) (unchanged)
     // ------------------------
     async function sub_Fetch(url, fetchRes) {
         try {
@@ -231,7 +179,7 @@ function _QB() {
     }
 
     // ------------------------
-    // Other helpers
+    // Other helpers (unchanged)
     // ------------------------
     function halt() {}
     function halted() { return false; }
@@ -257,11 +205,12 @@ function _QB() {
     function func_Val(v){_assertParam(v);return Number(v)||0;}
 
     // ------------------------
-    // Expose public API
+    // Expose public API (Modified)
     // ------------------------
     return {
         initArray, resizeArray, arrayValue,
         func_Input, func_Fetch, sub_Fetch,
+        processInput, isWaitingForInput, // <-- New functions for communication with index.html
         halt, halted, autoLimit,
         func_Asc, func_Chr, func_Command,
         func_Left, func_InStr, func__InStrRev,
