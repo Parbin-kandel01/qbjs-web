@@ -53,11 +53,6 @@ var GX = new function() {
     };
     var _isMobileDevice = false; // Flag to detect mobile devices
 
-    // Hidden input for mobile keyboard
-    var _hiddenInput = null;
-    var _inputMode = "text";
-    var _inputActive = false;
-
     async function _registerGameEvents(fnEventCallback) {
         _onGameEvent = fnEventCallback;
 
@@ -127,13 +122,6 @@ var GX = new function() {
             right: false,
             action: false
         };
-
-        // Reset input
-        _inputActive = false;
-        if (_hiddenInput) {
-            _hiddenInput.blur();
-            _hiddenInput.style.display = "none";
-        }
     }
 
     // Scene Functions
@@ -2269,155 +2257,20 @@ var GX = new function() {
         return new Promise(resolve => setTimeout(resolve, ms));
     };
 
-    // Mobile Keyboard Input Functions
-    function _setupHiddenInput() {
-        _hiddenInput = document.getElementById("gx-hidden-input");
-        if (!_hiddenInput) {
-            // Create the hidden input if it doesn't exist
-            _hiddenInput = document.createElement("input");
-            _hiddenInput.id = "gx-hidden-input";
-            _hiddenInput.style.display = "none";
-            _hiddenInput.style.position = "fixed";
-            _hiddenInput.style.top = "-100px";
-            _hiddenInput.style.left = "-100px";
-            _hiddenInput.style.width = "1px";
-            _hiddenInput.style.height = "1px";
-            _hiddenInput.style.opacity = "0";
-            _hiddenInput.style.pointerEvents = "none";
-            _hiddenInput.style.fontSize = "16px"; // Prevents zoom on iOS
-            document.body.appendChild(_hiddenInput);
-        }
-
-        // Listen for input events
-        _hiddenInput.addEventListener("input", function(e) {
-            if (!_inputActive) return;
-            
-            const value = e.target.value;
-            if (value.length > 0) {
-                const char = value[value.length - 1]; // last typed character
-
-                // Send character to GX game event system
-                if (_onGameEvent) {
-                    _onGameEvent({
-                        event: GX.EVENT_KEY_TYPED,
-                        key: char
-                    });
-                }
-
-                e.target.value = ""; // reset so only new chars are sent
-            }
-        });
-
-        // Handle blur event
-        _hiddenInput.addEventListener("blur", function() {
-            if (_inputActive) {
-                // Notify that input is complete
-                if (_onGameEvent) {
-                    _onGameEvent({
-                        event: GX.EVENT_KEY_TYPED,
-                        key: "\n" // Send enter key to indicate completion
-                    });
-                }
-                _inputActive = false;
-                _hiddenInput.style.display = "none";
-            }
-        });
-
-        // Handle keydown for special keys (like Enter)
-        _hiddenInput.addEventListener("keydown", function(e) {
-            if (!_inputActive) return;
-            
-            if (e.key === "Enter") {
-                e.preventDefault();
-                if (_onGameEvent) {
-                    _onGameEvent({
-                        event: GX.EVENT_KEY_TYPED,
-                        key: "\n"
-                    });
-                }
-                _inputActive = false;
-                _hiddenInput.blur();
-                _hiddenInput.style.display = "none";
-            }
-        });
-    }
-
-    function _requestNumberInput() {
-        _setInputMode("number");
-    }
-
-    function _requestTextInput() {
-        _setInputMode("text");
-    }
-
-    function _cancelInput() {
-        _inputActive = false;
-        if (_hiddenInput) {
-            _hiddenInput.blur();
-            _hiddenInput.style.display = "none";
-        }
-    }
-
-    function _inputActive() {
-        return _inputActive;
-    }
-
-    function _setInputMode(mode) {
-        if (!_hiddenInput) {
-            console.warn("GX: hiddenInput not initialized. Call GX.init() first.");
-            return;
-        }
-        
-        _inputMode = mode;
-        _inputActive = true;
-        
-        if (mode === "number") {
-            _hiddenInput.type = "number";
-            _hiddenInput.inputMode = "numeric";
-            _hiddenInput.pattern = "[0-9]*";
-        } else {
-            _hiddenInput.type = "text";
-            _hiddenInput.inputMode = "text";
-        }
-        
-        // Clear any previous value
-        _hiddenInput.value = "";
-        
-        // Ensure the input is visible and focusable
-        _hiddenInput.style.display = "block";
-        _hiddenInput.style.opacity = "0.01";
-        _hiddenInput.style.position = "fixed";
-        _hiddenInput.style.top = "0";
-        _hiddenInput.style.left = "0";
-        _hiddenInput.style.width = "10px";
-        _hiddenInput.style.height = "10px";
-        _hiddenInput.style.fontSize = "16px";
-        
-        // Focus with a slight delay to ensure the element is properly displayed
-        setTimeout(function() {
-            _hiddenInput.focus();
-            // Some browsers need a click to trigger the keyboard
-            _hiddenInput.click();
-        }, 50);
-    }
-
     function _init() {
         _vfsCwd = _vfs.rootDirectory();
 
         _fontCreateDefault(GX.FONT_DEFAULT);
         _fontCreateDefault(GX.FONT_DEFAULT_BLACK);
 
-        // Setup hidden input for mobile keyboard
-        _setupHiddenInput();
-
         addEventListener("keyup", function(event) { 
             const activeElement = document.activeElement;
             const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
 
-            // Allow the hidden mobile input to handle its own keyup/keydown if it's focused
-            if (activeElement && activeElement.id === 'gx-hidden-input') {
-                // Do nothing, let the input event handle it
-                return;
+            // Allow the mobile-specific input elements (mobile-input, mobile-textarea) to handle their own keyup/keydown if they're focused
+            // These are managed by qbjs-ide.js for QB's INPUT statements.
+            if (activeElement && (activeElement.id === 'mobile-input' || activeElement.id === 'mobile-textarea')) {
+                return; // Let qbjs-ide.js handle it
             }
 
             if (_scene.active && !isTypingIntoInput) {
@@ -2431,10 +2284,10 @@ var GX = new function() {
             const activeElement = document.activeElement;
             const isTypingIntoInput = (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA'));
 
-            // Allow the hidden mobile input to handle its own keyup/keydown if it's focused
-            if (activeElement && activeElement.id === 'gx-hidden-input') {
-                // Do nothing, let the input event handle it
-                return;
+            // Allow the mobile-specific input elements (mobile-input, mobile-textarea) to handle their own keyup/keydown if they're focused
+            // These are managed by qbjs-ide.js for QB's INPUT statements.
+            if (activeElement && (activeElement.id === 'mobile-input' || activeElement.id === 'mobile-textarea')) {
+                return; // Let qbjs-ide.js handle it
             }
 
             if (_scene.active && !isTypingIntoInput) {
@@ -2450,8 +2303,9 @@ var GX = new function() {
             console.log("Mobile device detected. Initializing touch controls.");
             document.body.addEventListener('touchstart', function(e) {
                 const activeElement = document.activeElement;
+                // Only blur if the active element is not one of our mobile input fields
                 if (activeElement && activeElement.tagName !== 'BODY' &&
-                    activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+                    activeElement.id !== 'mobile-input' && activeElement.id !== 'mobile-textarea') {
                     activeElement.blur();
                 }
             }, { passive: false });
@@ -2647,12 +2501,6 @@ var GX = new function() {
 
     this.fullScreen = _fullScreen;
     this.keyDown = _keyDown;
-
-    // Mobile keyboard input functions
-    this.requestNumberInput = _requestNumberInput;
-    this.requestTextInput = _requestTextInput;
-    this.cancelInput = _cancelInput;
-    this.inputActive = _inputActive;
 
     this.init = _init;
     this.reset = _reset;
@@ -2871,6 +2719,27 @@ var GX = new function() {
         }
 
         return value;
+    };
+
+    // ----------------------------------------------------
+    // Hidden input system for mobile soft keyboard - REMOVED
+    // This logic was conflicting with the QB.func_Input override in qbjs-ide.js
+    // and is not needed for general QB INPUT statements.
+    // ----------------------------------------------------
+    // var hiddenInput = null; // Initialize as null, will be assigned in _init
+
+    // function GXSetInputMode(mode) { /* ... removed ... */ }
+    // this.requestNumberInput = function () { /* ... removed ... */ };
+    // this.requestTextInput = function () { /* ... removed ... */ };
+
+    // Modified GX.init to remove hiddenInput setup
+    var originalInit = this.init;
+    this.init = function() {
+        originalInit(); // Call the original _init function first
+
+        // Removed all hiddenInput related logic from here.
+        // The mobile input for QB's INPUT statements is now handled exclusively
+        // by the override in qbjs-ide.js.
     };
 };    
     
