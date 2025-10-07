@@ -72,6 +72,182 @@ var IDE = new function() {
         return document.getElementById(id);
     }
 
+    // Add mobile device detection
+    function isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
+    // Add mobile input handling - MODIFIED
+    function _setupMobileInput() {
+        // Create mobile input elements if they don't exist
+        let mobileInput = document.getElementById('mobile-input');
+        if (!mobileInput) {
+            mobileInput = document.createElement('input');
+            mobileInput.id = 'mobile-input';
+            mobileInput.type = 'text';
+            // Initial hidden state, will be made visible when needed
+            mobileInput.style.position = 'fixed';
+            mobileInput.style.top = '-100px'; // Keep it off-screen initially
+            mobileInput.style.left = '0';
+            mobileInput.style.width = '100px';
+            mobileInput.style.zIndex = '10000';
+            mobileInput.style.opacity = '0';
+            mobileInput.style.pointerEvents = 'none';
+            document.body.appendChild(mobileInput);
+        }
+
+        let mobileTextarea = document.getElementById('mobile-textarea');
+        if (!mobileTextarea) {
+            mobileTextarea = document.createElement('textarea');
+            mobileTextarea.id = 'mobile-textarea';
+            mobileTextarea.style.position = 'fixed';
+            mobileTextarea.style.top = '-100px'; // Keep it off-screen initially
+            mobileTextarea.style.left = '0';
+            mobileTextarea.style.width = '100px';
+            mobileTextarea.style.height = '60px';
+            mobileTextarea.style.zIndex = '10000';
+            mobileTextarea.style.opacity = '0';
+            mobileTextarea.style.pointerEvents = 'none';
+            document.body.appendChild(mobileTextarea);
+        }
+
+        // Override QB input functions to use mobile input
+        if (typeof QB !== 'undefined') {
+            // Store original input handler if it exists (from qb-console.js)
+            // This is important if we want to call it for non-mobile, or if the IDE's
+            // console input is preferred even on mobile for some reason.
+            // However, for a clean mobile experience, we fully override.
+            const originalFuncInput = QB.func_Input; // Get the original function from the QB instance
+
+            // Override the func_Input method directly on the QB instance
+            QB.func_Input = async function(promptText) { // Note: func_Input is async
+                // If not a mobile device, or if the IDE is not in play/auto mode,
+                // fall back to the original func_Input (desktop behavior).
+                // This ensures desktop still uses the standard console input.
+                if (!isMobileDevice() || (appMode !== "play" && appMode !== "auto")) {
+                    return originalFuncInput.call(this, promptText);
+                }
+
+                // Mobile environment logic
+                return new Promise(resolve => {
+                    // FIX: Add default '?' prompt if none is provided (e.g., INPUT N)
+                    if (!promptText || promptText === "") {
+                        promptText = "? ";
+                    }
+
+                    // Console Visibility: Show IDE console before input (Crucial for GX mode)
+                    if (typeof IDE !== 'undefined' && typeof IDE.showConsole === 'function') {
+                        IDE.showConsole();
+                    }
+
+                    // Ensure console area is created and styled (from qb-console.js)
+                    let consoleArea = document.getElementById("qb_console_area");
+                    if (!consoleArea) {
+                        consoleArea = document.createElement("div");
+                        consoleArea.id = "qb_console_area";
+                        document.body.appendChild(consoleArea);
+                    }
+                    // Apply essential console styling (ensure it's visible and styled)
+                    consoleArea.style.whiteSpace = "pre-wrap";
+                    consoleArea.style.fontFamily = "monospace";
+                    consoleArea.style.backgroundColor = "#000";
+                    consoleArea.style.color = "#fff";
+                    consoleArea.style.padding = "8px";
+                    consoleArea.style.minHeight = "50px";
+                    consoleArea.style.overflowY = "auto";
+                    consoleArea.style.display = "block";
+
+                    // Append the prompt line
+                    const promptLine = document.createElement("div");
+                    promptLine.textContent = promptText;
+                    consoleArea.appendChild(promptLine);
+
+                    // Use the mobile-specific input elements
+                    // For func_Input, we assume single-line text input
+                    const inputElement = mobileInput;
+
+                    // Apply aggressive styling to make it visible and interactive
+                    inputElement.style.position = 'fixed'; // Ensure it stays in place
+                    inputElement.style.top = 'auto';
+                    inputElement.style.bottom = '50px'; // Position at bottom for mobile keyboard
+                    inputElement.style.left = '10%';
+                    inputElement.style.width = '80%';
+                    inputElement.style.opacity = '1';
+                    inputElement.style.pointerEvents = 'auto';
+                    inputElement.style.background = 'white';
+                    inputElement.style.color = 'black';
+                    inputElement.style.border = '2px solid #007acc';
+                    inputElement.style.borderRadius = '5px';
+                    inputElement.style.padding = '10px';
+                    inputElement.style.fontSize = '16px';
+                    inputElement.style.boxSizing = 'border-box'; // Include padding in width
+                    inputElement.style.display = 'block'; // Ensure it's block level
+                    inputElement.autocomplete = "off";
+                    inputElement.autocapitalize = "none";
+                    inputElement.autocorrect = "off";
+                    inputElement.spellcheck = false;
+                    inputElement.type = 'text'; // Ensure it's text type for general input
+
+                    inputElement.value = ''; // Clear previous value
+
+                    // Use a slight delay to ensure the element is rendered before focusing
+                    setTimeout(() => {
+                        inputElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        inputElement.focus();
+                    }, 150); // Increased delay for better reliability
+
+                    const handleSubmit = () => {
+                        const val = inputElement.value;
+                        const outLine = document.createElement("div");
+                        outLine.textContent = val;
+                        consoleArea.appendChild(outLine);
+
+                        // Hide and reset the input element
+                        inputElement.style.opacity = '0';
+                        inputElement.style.pointerEvents = 'none';
+                        inputElement.style.top = '-100px'; // Move off-screen
+                        inputElement.style.display = 'none'; // Hide it completely
+                        inputElement.value = '';
+                        inputElement.blur(); // Remove focus
+
+                        // Cleanup: Hide console after input is done
+                        if (typeof IDE !== 'undefined' && typeof IDE.hideConsole === 'function') {
+                            IDE.hideConsole();
+                        }
+
+                        // Remove event listeners to prevent memory leaks
+                        inputElement.removeEventListener('keypress', handleKeypress);
+                        inputElement.removeEventListener('blur', handleBlur);
+
+                        resolve(val);
+                    };
+
+                    const handleKeypress = (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault(); // Prevent default Enter behavior
+                            handleSubmit();
+                        }
+                    };
+
+                    const handleBlur = () => {
+                        // Small delay to check if this is due to submission
+                        setTimeout(() => {
+                            if (document.activeElement !== inputElement) {
+                                handleSubmit();
+                            }
+                        }, 100);
+                    };
+
+                    inputElement.addEventListener('keypress', handleKeypress);
+                    inputElement.addEventListener('blur', handleBlur);
+
+                    promptLine.scrollIntoView({ behavior: "smooth", block: "end" });
+                });
+            };
+        }
+    }
+
     async function _init() {
         document.body.style.display = "initial";
 
@@ -155,6 +331,15 @@ var IDE = new function() {
             _e.ideTheme.href = "codemirror/themes/" + theme + ".css";
             GitHelp.navhome();
         }
+
+        // Initialize mobile input handling - IMPORTANT: Call this AFTER QB is initialized
+        // Ensure window.QB is available before calling _setupMobileInput
+        if (typeof QB !== 'undefined') {
+            _setupMobileInput();
+        } else {
+            console.warn("QB object not found, mobile input override will not be applied.");
+        }
+
 
         // initialize the code editor
         editor = CodeMirror(document.querySelector("#code"), {
@@ -261,8 +446,6 @@ var IDE = new function() {
         if (appMode == "auto") {
             _runProgram();
         }
-        
-        // --- No custom mobile input initialization here (relying on console-qb.js) ---
     }    
 
     function _getErrorLine(error, stackDepth) {
@@ -453,8 +636,6 @@ var IDE = new function() {
 
         return false;
     }
-    
-    // --- Removed Mobile Input Hook: Relying on func_Input in console-qb.js ---
 
     function _hasError() {
         var warnings = QBCompiler.getWarnings();
@@ -1066,7 +1247,7 @@ var IDE = new function() {
             _e.code.style.height = (window.innerHeight - codeYOffset) + "px";
             _e.slider.style.height = (window.innerHeight - codeYOffset) + "px";
         }
-        QB.resize(f.clientWidth, f.clientHeight);
+        // QB.resize(f.clientWidth, f.clientHeight); // This function doesn't exist in QB.js
     }
     window.onresize();
 
